@@ -78,7 +78,63 @@ local Slot <const> = setmetatable({
 DataTable
 --]]
 
--- TODO
+local datatable_metatable <const> = {}
+local datatable_private_data <const> = setmetatable({}, {__mode='k'})
+
+-- public interface
+local DataTable <const> = setmetatable({
+  create = function (slot_data, flag_data)
+    if type(slot_data) ~= 'table' or not next(slot_data) then
+      error("DataTable slots must be a non-empty table")
+    end
+
+    local flag_data <const> = flag_data or {}
+    if type(flag_data) ~= 'table' then
+      error("DataTable flags must be a table")
+    end
+
+    -- TODO: flags
+    -- local frozen <const> = (flag_data['frozen'] == true)
+
+    -- TODO: slots
+    local slots <const> = {}
+
+    local instance <const> = {}
+    datatable_private_data[instance] = {
+      slots=slots,
+      frozen=frozen
+    }
+
+    return setmetatable(instance, {
+      __name = 'DataTable',
+      __metatable = datatable_metatable,
+      __index = function (self, key)
+        local private <const> = assert(
+          datatable_private_data[self],
+          "DataTable instance not recognized: " .. tostring(self)
+        )
+
+        return private.slots[key]
+      end,
+      __newindex = function (_, _, _)
+        error("DataTable definition cannot be modified")
+      end,
+      __call = function (self, data)
+        -- TODO: create instance of datatable with data
+      end,
+      __gc = function (self)
+        datatable_private_data[self] = nil
+      end
+    })
+  end,
+  is = function (value)
+    return (getmetatable(value) == datatable_metatable)
+  end
+}, {
+  __call = function (self, ...)
+    return self.create(...)
+  end
+})
 
 --[[
 Module Interface
@@ -124,7 +180,20 @@ function test_slot.test_lifecycle()
   lu.assertEquals(countTableKeys(slot_private_data), initial_count)
 end
 
--- TODO: datatable tests
+-- datatable tests
+test_datatable = {}
+
+function test_datatable.test_lifecycle()
+  collectgarbage('collect')
+  local initial_count = countTableKeys(datatable_private_data)
+
+  local datatable = DataTable({name='string', age='integer'})
+  lu.assertEquals(countTableKeys(datatable_private_data), initial_count + 1)
+
+  datatable = nil
+  collectgarbage('collect')
+  lu.assertEquals(countTableKeys(datatable_private_data), initial_count)
+end
 
 -- run tests
 os.exit(lu.LuaUnit.run())
