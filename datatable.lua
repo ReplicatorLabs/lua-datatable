@@ -245,6 +245,19 @@ local datatable_type_internal_metatable <const> = {
       return slots
     elseif key == 'frozen' then
       return private.frozen
+    elseif key == 'is' then
+      return function (value)
+        if getmetatable(value) ~= datatable_instance_metatable then
+          return false
+        end
+
+        local instance_private <const> = assert(
+          datatable_instance_private[value],
+          "DataTable instance not recognized: " .. tostring(value)
+        )
+
+        return (instance_private.datatable == self)
+      end
     else
       return nil
     end
@@ -663,7 +676,22 @@ function test_datatable.test_data_pairs_enumeration()
   lu.assertEquals(countTableKeys(data), 0)
 end
 
--- TODO: is_instance
+function test_datatable.test_is_instance()
+  local CountA <const> = DataTable{count='integer'}
+  local count_a <const> = CountA{count=10}
+
+  local CountB <const> = DataTable{count='integer'}
+  local count_b <const> = CountB{count=10}
+
+  lu.assertTrue(CountA.is(count_a))
+  lu.assertTrue(CountB.is(count_b))
+
+  lu.assertFalse(CountA.is(count_b))
+  lu.assertFalse(CountB.is(count_a))
+
+  lu.assertFalse(CountA.is(CountA))
+  lu.assertFalse(CountA.is({}))
+end
 
 -- run tests
 os.exit(lu.LuaUnit.run())
