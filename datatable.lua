@@ -186,6 +186,40 @@ local datatable_instance_internal_metatable <const> = {
 
     private.data[key] = value
   end,
+  __pairs = function (self)
+    local private <const> = assert(
+      datatable_instance_private[self],
+      "DataTable instance not recognized: " .. tostring(self)
+    )
+
+    local datatable <const> = assert(
+      datatable_type_private[private.datatable],
+      "DataTable type not recognized: " .. tostring(self)
+    )
+
+    -- note: lua table iteration is in arbitrary order whereas this always
+    -- iterates in the same order which is technically backwards compatible
+    -- for loops: https://www.lua.org/manual/5.4/manual.html#3.3.5
+    local function iterate(keys, key) -- state variable, initial or previous control value
+      -- note: not strictly necessary as table.remove({}, 1) and inner[nil]
+      -- both return nil so the loop ends on it's own but this is safer
+      if #keys == 0 then
+        return
+      end
+
+      local key <const> = table.remove(keys, 1)
+      local value <const> = private.data[key]
+      return key, value -- control value, remaining loop values
+    end
+
+    local keys <const> = {}
+    for name, _ in pairs(datatable.slots) do
+      table.insert(keys, name)
+    end
+
+    -- iterator function, state variable, initial control value, closing variable
+    return iterate, keys, keys[1], nil
+  end,
   __gc = function (self)
     datatable_instance_private[self] = nil
   end
@@ -364,11 +398,71 @@ function test_datatable_type.test_lifecycle()
   lu.assertEquals(countTableKeys(datatable_type_private), initial_count)
 end
 
--- TODO: create
--- TODO: not allowed to modify slots
--- TODO: equality
--- TODO: pairs() enumeration for slots
--- TODO: ipairs() enumeration for slots
+function test_datatable_type.test_custom_slots()
+  local Person <const> = DataTable{
+    name=Slot(function (value)
+      if type(value) ~= 'string' or string.len(value) == 0 then
+        return nil, "custom_name_slot_error"
+      end
+
+      return value
+    end),
+    age=Slot(function (value)
+      if type(value) ~= 'number' or value <= 0 then
+        return nil, "custom_age_slot_error"
+      end
+
+      return value
+    end)
+  }
+
+  local expected_slot_names <const> = {
+    ['name']=true,
+    ['age']=true,
+  }
+
+  for name, slot in pairs(Person.slots) do
+    lu.assertTrue(expected_slot_names[name])
+    lu.assertTrue(Slot.is(slot))
+    expected_slot_names[name] = nil
+  end
+
+  lu.assertTrue(countTableKeys(expected_slot_names) == 0)
+end
+
+function test_datatable_type.test_default_slots()
+  local Person <const> = DataTable{
+    alive='boolean',
+    name='string',
+    age='integer',
+    height='number',
+    aliases='table'
+  }
+
+  local expected_slot_names <const> = {
+    ['alive']=true,
+    ['name']=true,
+    ['age']=true,
+    ['height']=true,
+    ['aliases']=true
+  }
+
+  for name, slot in pairs(Person.slots) do
+    lu.assertTrue(expected_slot_names[name])
+    lu.assertTrue(Slot.is(slot))
+    expected_slot_names[name] = nil
+  end
+
+  lu.assertTrue(countTableKeys(expected_slot_names) == 0)
+end
+
+function test_datatable_type.test_frozen()
+  local MutablePerson <const> = DataTable{name='string'}
+  lu.assertFalse(MutablePerson.frozen)
+
+  local FrozenPerson <const> = DataTable({name='string'}, {frozen=true})
+  lu.assertTrue(FrozenPerson.frozen)
+end
 
 function test_datatable_type.test_is_instance()
   local datatable <const> = DataTable{slot='any'}
@@ -410,20 +504,10 @@ function test_datatable.test_custom_slots()
     end)
   }
 
-  local expected_slot_names <const> = {
-    ['name']=true,
-    ['age']=true,
-  }
-
-  for name, slot in pairs(Person.slots) do
-    lu.assertTrue(expected_slot_names[name])
-    lu.assertTrue(Slot.is(slot))
-    expected_slot_names[name] = nil
-  end
-
-  lu.assertTrue(countTableKeys(expected_slot_names) == 0)
-
   local person <const> = Person{name='Jane Doe', age=18}
+  lu.assertEquals(person.name, 'Jane Doe')
+  lu.assertEquals(person.age, 18)
+
   person.name = 'Jane Smith'
   person.age = 42
 
@@ -456,22 +540,6 @@ function test_datatable.test_default_slots()
     height='number',
     aliases='table'
   }
-
-  local expected_slot_names <const> = {
-    ['alive']=true,
-    ['name']=true,
-    ['age']=true,
-    ['height']=true,
-    ['aliases']=true
-  }
-
-  for name, slot in pairs(Person.slots) do
-    lu.assertTrue(expected_slot_names[name])
-    lu.assertTrue(Slot.is(slot))
-    expected_slot_names[name] = nil
-  end
-
-  lu.assertTrue(countTableKeys(expected_slot_names) == 0)
 
   local john_doe <const> = Person{
     alive=true,
@@ -544,12 +612,7 @@ function test_datatable.test_default_slots()
 end
 
 function test_datatable.test_frozen()
-  local MutablePerson <const> = DataTable{name='string'}
-  lu.assertFalse(MutablePerson.frozen)
-
   local Person <const> = DataTable({name='string'}, {frozen=true})
-  lu.assertTrue(Person.frozen)
-
   local john_doe <const> = Person{name='John Doe'}
 
   lu.assertErrorMsgContains(
@@ -573,8 +636,33 @@ function test_datatable.test_frozen()
   )
 end
 
--- TODO: equality
--- TODO: pairs() enumeration for data
+function test_datatable.test_data_pairs_enumeration()
+  local Person <const> = DataTable{
+    alive='boolean',
+    name='string',
+    age='integer',
+    height='number',
+    aliases='table'
+  }
+
+  local data <const> = {
+    alive=true,
+    name='John Doe',
+    age=18,
+    height=80.5,
+    aliases={'Johnny'}
+  }
+
+  local john_doe <const> = Person(data)
+
+  for key, value in pairs(john_doe) do
+    lu.assertEquals(data[key], value)
+    data[key] = nil
+  end
+
+  lu.assertEquals(countTableKeys(data), 0)
+end
+
 -- TODO: is_instance
 
 -- run tests

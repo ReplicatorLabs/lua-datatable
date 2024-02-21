@@ -65,11 +65,14 @@ local employee_john_doe <const> = Employee{
 }
 
 -- TODO: assert(Employee.is(employee_john_doe))
+
 employee_john_doe.active = false
 print("Full Name: " .. employee_john_doe.full_name)
 print("Vacation Days: " .. tostring(employee_john_doe.vacation_days))
 
--- TODO: iterate data with pairs()
+for key, value in pairs(employee_john_doe) do
+  print("Employee['" .. key .. "'] -> " .. tostring(value)) -- Ex: Employee['active'] -> False
+end
 ```
 
 See the unit tests for more exhaustive examples.
