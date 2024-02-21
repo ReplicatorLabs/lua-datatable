@@ -201,6 +201,20 @@ local datatable_type_internal_metatable <const> = {
       "DataTable type not recognized: " .. tostring(self)
     )
 
+    if key == 'slots' then
+      -- shallow copy to prevent changing defined slots
+      local slots <const> = {}
+      for name, slot in pairs(private.slots) do
+        slots[name] = slot
+      end
+
+      return slots
+    elseif key == 'frozen' then
+      return private.frozen
+    else
+      return nil
+    end
+
     return private.slots[key]
   end,
   __newindex = function (_, _, _)
@@ -396,6 +410,19 @@ function test_datatable.test_custom_slots()
     end)
   }
 
+  local expected_slot_names <const> = {
+    ['name']=true,
+    ['age']=true,
+  }
+
+  for name, slot in pairs(Person.slots) do
+    lu.assertTrue(expected_slot_names[name])
+    lu.assertTrue(Slot.is(slot))
+    expected_slot_names[name] = nil
+  end
+
+  lu.assertTrue(countTableKeys(expected_slot_names) == 0)
+
   local person <const> = Person{name='Jane Doe', age=18}
   person.name = 'Jane Smith'
   person.age = 42
@@ -429,6 +456,22 @@ function test_datatable.test_default_slots()
     height='number',
     aliases='table'
   }
+
+  local expected_slot_names <const> = {
+    ['alive']=true,
+    ['name']=true,
+    ['age']=true,
+    ['height']=true,
+    ['aliases']=true
+  }
+
+  for name, slot in pairs(Person.slots) do
+    lu.assertTrue(expected_slot_names[name])
+    lu.assertTrue(Slot.is(slot))
+    expected_slot_names[name] = nil
+  end
+
+  lu.assertTrue(countTableKeys(expected_slot_names) == 0)
 
   local john_doe <const> = Person{
     alive=true,
@@ -501,7 +544,12 @@ function test_datatable.test_default_slots()
 end
 
 function test_datatable.test_frozen()
+  local MutablePerson <const> = DataTable{name='string'}
+  lu.assertFalse(MutablePerson.frozen)
+
   local Person <const> = DataTable({name='string'}, {frozen=true})
+  lu.assertTrue(Person.frozen)
+
   local john_doe <const> = Person{name='John Doe'}
 
   lu.assertErrorMsgContains(

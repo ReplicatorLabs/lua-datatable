@@ -37,8 +37,9 @@ local Employee <const> = dt.DataTable{
 )
 
 assert(dt.DataTable.is(Employee))
-
--- TODO: iterate slots with pairs()
+for name, slot in pairs(Employee.slots) do
+  print("Slot: " .. name)
+end
 ```
 
 When creating a DataTable type you can use the following built-in slots:
@@ -90,6 +91,7 @@ Planned:
 * [x] Lua 5.4 support.
   * [ ] Integration testing.
 * [ ] DataTable custom string representations for types and instances.
+* [ ] LuaRocks package.
 
 Open to consideration:
 
