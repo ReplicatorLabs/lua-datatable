@@ -15,7 +15,7 @@ local dt <const> = require('datatable')
 Create a DataTable type:
 
 ```lua
-local Employee <const> = dt.DataTable{
+local Employee <const> = dt.DataTable({
   active='boolean',
   full_name=dt.Slot(function (value)
     if type(value) ~= 'string' or string.len(value) == 0 then
@@ -34,9 +34,18 @@ local Employee <const> = dt.DataTable{
 
     return value
   end)
-)
+}, {  -- flags are all optional
+  frozen=false,
+  validator=function (data)
+    if data.active and data.vacation_days <= 5 then
+      -- returning a non-nil value will cause an error when creating an instance
+      return "All active employees must receive at least 5 vacation days."
+    end
+  end
+})
 
 assert(dt.DataTable.is(Employee))
+assert(not Employee.frozen)
 for name, slot in pairs(Employee.slots) do
   print("Slot: " .. name)
 end
@@ -97,6 +106,9 @@ Planned:
 * [x] Lua 5.4 support.
   * [ ] Integration testing.
 * [ ] DataTable custom string representations for types and instances.
+  * [ ] DataTable formatter flag with matching interface to Slot formatter.
+  * [ ] Slot tostring implementation.
+  * [ ] DataTable instance tostring implementation.
 * [ ] LuaRocks package.
 
 Open to consideration:
@@ -109,7 +121,7 @@ Open to consideration:
   * [ ] Integration testing.
 * [ ] Lua 5.1 support.
   * [ ] Integration testing.
-* [ ] Support for value equality testing.
+* [ ] Support for DataTable instance value equality testing.
 
 ## References
 

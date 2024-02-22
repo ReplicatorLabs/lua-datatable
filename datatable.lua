@@ -184,7 +184,15 @@ local datatable_instance_internal_metatable <const> = {
       error("DataTable slot '" .. key .. "': " .. message)
     end
 
+    local previous_value <const> = private.data[key]
     private.data[key] = value
+
+    local message = datatable.validator(private.data)
+    if message ~= nil then
+      private.data[key] = previous_value  -- XXX: is there a better way without a shallow copy of private.data?
+      assert(type(message) == 'string', "DataTable validator function must return a string message")
+      error("DataTable instance data is not valid: " .. message)
+    end
   end,
   __pairs = function (self)
     local private <const> = assert(
@@ -283,6 +291,12 @@ local datatable_type_internal_metatable <const> = {
       initial_data[name] = value
     end
 
+    local message <const> = private.validator(initial_data)
+    if message ~= nil then
+      assert(type(message) == 'string', "DataTable validator function must return a string message")
+      error("DataTable instance data is not valid: " .. message)
+    end
+
     local instance <const> = {}
     datatable_instance_private[instance] = {
       datatable=self,
@@ -308,7 +322,15 @@ local DataTable <const> = setmetatable({
       error("DataTable flags must be a table")
     end
 
-    local frozen <const> = (flag_data['frozen'] == true)
+    local frozen <const> = (flag_data['frozen'] or false)
+    if type(frozen) ~= 'boolean' then
+      error("DataTable frozen flag must be a boolean")
+    end
+
+    local validator <const> = (flag_data['validator'] or (function (_) return end))
+    if type(validator) ~= 'function' then
+      error("DataTable validator flag must be a function")
+    end
 
     local slots <const> = {}
     for name, value in pairs(slot_data) do
@@ -335,7 +357,8 @@ local DataTable <const> = setmetatable({
     local instance <const> = {}
     datatable_type_private[instance] = {
       slots=slots,
-      frozen=frozen
+      frozen=frozen,
+      validator=validator
     }
 
     return setmetatable(instance, datatable_type_internal_metatable)
@@ -646,6 +669,39 @@ function test_datatable.test_frozen()
     john_doe,
     'name',
     'test'
+  )
+end
+
+function test_datatable.test_validator()
+  local IntegerRange <const> = DataTable({
+    low='integer',
+    high='integer'
+  }, {
+    validator=(function (data)
+      if data.low > data.high then
+        return "Range lower bound must not be greater than higher bound"
+      end
+    end)
+  })
+
+  local existing_range <const> = IntegerRange{low=10, high=20}
+  existing_range.low = 15
+  existing_range.high = 30
+
+  lu.assertErrorMsgContains(
+    "Range lower bound must not be greater than higher bound",
+    function (i, k, v)
+      i[k] = v
+    end,
+    existing_range,
+    'low',
+    100
+  )
+
+  lu.assertErrorMsgContains(
+    "Range lower bound must not be greater than higher bound",
+    IntegerRange,
+    {low=20, high=10}
   )
 end
 
