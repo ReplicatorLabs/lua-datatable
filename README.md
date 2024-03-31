@@ -91,12 +91,12 @@ See the unit tests for more exhaustive examples.
 
 ## Tests
 
-Make sure you have the submodules available and run the `datatable.lua` file as
+Make sure you have the submodules available and run the `project.lua` file as
 a script to run the tests:
 
 ```
 git submodule update --init --recursive
-lua ./datatable.lua -v
+env LUA_DATATABLE_LEAK_INTERNALS=TRUE lua ./project.lua
 ```
 
 ## Roadmap
@@ -104,7 +104,8 @@ lua ./datatable.lua -v
 Planned:
 
 * [x] Lua 5.4 support.
-  * [ ] Integration testing.
+  * [x] Unit tests.
+  * [ ] Integration tests.
 * [ ] DataTable custom string representations for types and instances.
   * [ ] DataTable formatter flag with matching interface to Slot formatter.
   * [ ] Slot tostring implementation.
@@ -114,13 +115,13 @@ Planned:
 Open to consideration:
 
 * [ ] LuaJIT support.
-  * [ ] Integration testing.
+  * [ ] Integration tests.
 * [ ] Lua 5.3 support.
-  * [ ] Integration testing.
+  * [ ] Integration tests.
 * [ ] Lua 5.2 support.
-  * [ ] Integration testing.
+  * [ ] Integration tests.
 * [ ] Lua 5.1 support.
-  * [ ] Integration testing.
+  * [ ] Integration tests.
 * [ ] Support for DataTable instance value equality testing.
 
 ## References
