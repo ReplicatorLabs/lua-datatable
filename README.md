@@ -16,7 +16,7 @@ Create a DataTable type:
 
 ```lua
 local Employee <const> = dt.DataTable({
-  active='boolean',
+  active=dt.BooleanSlot,
   full_name=dt.Slot(function (value)
     if type(value) ~= 'string' or string.len(value) == 0 then
       return nil, "value must be a non-empty string"
@@ -53,13 +53,24 @@ end
 
 When creating a DataTable type you can use the following built-in slots:
 
-* `any`: does not do any type checking
-* `boolean`: must be a boolean (via `type()`)
-* `string`: must be a string (via `type()`)
-* `number`: must be a number (via `type()`)
-* `integer`: must be an integer (via `math.type()`)
-* `float`: must be a float (via `math.type()`)
-* `table`: must be a table (via `type()`)
+* `AnySlot`: does not do any type checking
+* `BooleanSlot`: must be a boolean (via `type()`)
+* `StringSlot`: must be a string (via `type()`)
+* `NumberSlot`: must be a number (via `type()`)
+* `IntegerSlot`: must be an integer (via `math.type()`)
+* `FloatSlot`: must be a float (via `math.type()`)
+* `TableSlot`: must be a table (via `type()`)
+
+If you need to validate complex array or map tables you can use the following
+factory functions:
+
+* `create_array_table_slot{...}`: create a Slot to validate an array table with given constraints
+* `create_map_table_slot{...}`: create a Slot to validate a map table with given constraints
+
+The following convenience wrappers are provided:
+
+* `Optional(internal_slot)`: validates values using the internal slot but also allows `nil`
+* `DataTableSlot(datatable_type)`: values must be an instance of the given DataTable type
 
 You can also create custom slots with validator and, optionally, formatter
 functions as seen in the example above.
