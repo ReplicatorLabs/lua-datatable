@@ -148,6 +148,24 @@ end, function (value)
 end)
 
 --[[
+Slot Optional Wrapper
+--]]
+
+local function Optional(internal_slot)
+  assert(Slot.is(internal_slot), "internal_slot value must be a Slot instance")
+
+  return Slot.create(function (value)
+    if value == nil then
+      return nil
+    end
+
+    return internal_slot('validate', value)
+  end, function (value)
+    return internal_slot('format', value)
+  end)
+end
+
+--[[
 DataTable
 --]]
 
@@ -381,7 +399,10 @@ Module Interface
 --]]
 
 local module = {
+  -- slot
   Slot=Slot,
+
+  -- default slots
   AnySlot=AnySlot,
   BooleanSlot=BooleanSlot,
   StringSlot=StringSlot,
@@ -389,6 +410,11 @@ local module = {
   IntegerSlot=IntegerSlot,
   FloatSlot=FloatSlot,
   TableSlot=TableSlot,
+
+  -- slot wrappers
+  Optional=Optional,
+
+  -- datatable
   DataTable=DataTable
 }
 

@@ -44,6 +44,33 @@ end
 -- TODO: validator method guard rails
 -- TODO: formatter method guard rails
 
+function test_slot.test_optional_wrapper()
+  -- internal slot works as expected
+  local internal_slot <const> = dt.AnySlot
+  local value, message = internal_slot('validate', nil)
+  lu.assertNil(value)
+  lu.assertEquals(message, "slot value must not be nil")
+
+  -- outer slot is a valid Slot instance
+  local outer_slot <const> = dt.Optional(internal_slot)
+  lu.assertTrue(dt.Slot.is(outer_slot))
+
+  -- outer slot validate works with nil
+  local value, message = outer_slot('validate', nil)
+  lu.assertNil(value)
+  lu.assertNil(message)
+
+  -- outer slot format works with nil
+  local format_nil <const> = outer_slot('format', nil)
+  lu.assertEquals(format_nil, "nil")
+
+  -- outer slot uses internal slot for formatting
+  local sample_value <const> = "Hello, world!"
+  local format_inner <const> = internal_slot('format', sample_value)
+  local format_outer <const> = outer_slot('format', sample_value)
+  lu.assertEquals(format_inner, format_outer)
+end
+
 -- datatable type tests
 test_datatable_type = {}
 
@@ -198,7 +225,7 @@ function test_datatable.test_default_slots()
     alive=dt.BooleanSlot,
     name=dt.StringSlot,
     age=dt.IntegerSlot,
-    height=dt.NumberSlot,
+    height=dt.Optional(dt.NumberSlot),
     aliases=dt.TableSlot
   }
 
@@ -259,6 +286,9 @@ function test_datatable.test_default_slots()
     'height',
     false
   )
+
+  john_doe.height = nil
+  lu.assertNil(john_doe.height)
 
   john_doe.aliases = {}
   lu.assertErrorMsgContains(
