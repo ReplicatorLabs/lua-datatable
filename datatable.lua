@@ -87,55 +87,65 @@ local Slot <const> = setmetatable({
 Default Slots
 --]]
 
-local default_slots <const> = {
-  ['any'] = Slot.create(function (value) return value end),
-  ['boolean'] = Slot.create(function (value)
-    if type(value) == 'boolean' then
-      return value
-    else
-      return nil, "slot value must be a boolean"
-    end
-  end),
-  ['string'] = Slot.create(function (value)
-    if type(value) == 'string' then
-      return value
-    else
-      return nil, "slot value must be a string"
-    end
-  end, function (value)
-    return '"' .. tostring(value) .. '"'
-  end),
-  ['number'] = Slot.create(function (value)
-    if type(value) == 'number' then
-      return value
-    else
-      return nil, "slot value must be a number"
-    end
-  end),
-  ['integer'] = Slot.create(function (value)
-    if math.type(value) == 'integer' then
-      return value
-    else
-      return nil, "slot value must be an integer"
-    end
-  end),
-  ['float'] = Slot.create(function (value)
-    if math.type(value) == 'float' then
-      return value
-    else
-      return nil, "slot value must be a float"
-    end
-  end),
-  ['table'] = Slot.create(function (value)
-    if type(value) == 'table' then
-      return value
-    else
-      return nil, "slot value must be a table"
-    end
-  end, function (value)
-    return "{...}"
-  end)
-}
+local AnySlot <const> = Slot.create(function (value)
+  if value == nil then
+    return nil, "slot value must not be nil"
+  else
+    return value
+  end
+end)
+
+local BooleanSlot <const> = Slot.create(function (value)
+  if type(value) == 'boolean' then
+    return value
+  else
+    return nil, "slot value must be a boolean"
+  end
+end)
+
+local StringSlot <const> = Slot.create(function (value)
+  if type(value) == 'string' then
+    return value
+  else
+    return nil, "slot value must be a string"
+  end
+end, function (value)
+  return '"' .. tostring(value) .. '"'
+end)
+
+local NumberSlot <const> = Slot.create(function (value)
+  if type(value) == 'number' then
+    return value
+  else
+    return nil, "slot value must be a number"
+  end
+end)
+
+local IntegerSlot <const> = Slot.create(function (value)
+  if math.type(value) == 'integer' then
+    return value
+  else
+    return nil, "slot value must be an integer"
+  end
+end)
+
+local FloatSlot <const> = Slot.create(function (value)
+  if math.type(value) == 'float' then
+    return value
+  else
+    return nil, "slot value must be a float"
+  end
+end)
+
+local TableSlot <const> = Slot.create(function (value)
+  if type(value) == 'table' then
+    return value
+  else
+    return nil, "slot value must be a table"
+  end
+end, function (value)
+  return "{" .. tostring(value) .. "}"
+end)
 
 --[[
 DataTable
@@ -334,10 +344,6 @@ local DataTable <const> = setmetatable({
 
     local slots <const> = {}
     for name, value in pairs(slot_data) do
-      if type(name) ~= 'string' or string.len(name) == 0 then
-        error("DataTable slot name must be a non-empty string")
-      end
-
       -- XXX: can this ever happen?
       if slots[name] then
         error("DataTable duplicate slot name: " .. tostring(name))
@@ -345,8 +351,6 @@ local DataTable <const> = setmetatable({
 
       if Slot.is(value) then
         slots[name] = value
-      elseif type(value) == 'string' then
-        slots[name] = assert(default_slots[value], "DataTable unsupported default slot: " .. tostring(value))
       elseif type(value) == 'table' then
         slots[name] = Slot.create(table.unpack(value))
       else
@@ -376,7 +380,17 @@ local DataTable <const> = setmetatable({
 Module Interface
 --]]
 
-local module = {Slot=Slot, DataTable=DataTable}
+local module = {
+  Slot=Slot,
+  AnySlot=AnySlot,
+  BooleanSlot=BooleanSlot,
+  StringSlot=StringSlot,
+  NumberSlot=NumberSlot,
+  IntegerSlot=IntegerSlot,
+  FloatSlot=FloatSlot,
+  TableSlot=TableSlot,
+  DataTable=DataTable
+}
 
 if os.getenv('LUA_DATATABLE_LEAK_INTERNALS') == 'TRUE' then
   -- leak internal variables and methods in order to unit test them from outside

@@ -51,7 +51,7 @@ function test_datatable_type.test_lifecycle()
   collectgarbage('collect')
   local initial_count = countTableKeys(dt.datatable_type_private)
 
-  local instance = dt.DataTable{slot='any'}
+  local instance = dt.DataTable{slot=dt.AnySlot}
   lu.assertEquals(countTableKeys(dt.datatable_type_private), initial_count + 1)
 
   instance = nil
@@ -93,11 +93,11 @@ end
 
 function test_datatable_type.test_default_slots()
   local Person <const> = dt.DataTable{
-    alive='boolean',
-    name='string',
-    age='integer',
-    height='number',
-    aliases='table'
+    alive=dt.BooleanSlot,
+    name=dt.StringSlot,
+    age=dt.IntegerSlot,
+    height=dt.NumberSlot,
+    aliases=dt.TableSlot
   }
 
   local expected_slot_names <const> = {
@@ -118,15 +118,15 @@ function test_datatable_type.test_default_slots()
 end
 
 function test_datatable_type.test_frozen()
-  local MutablePerson <const> = dt.DataTable{name='string'}
+  local MutablePerson <const> = dt.DataTable{name=dt.StringSlot}
   lu.assertFalse(MutablePerson.frozen)
 
-  local FrozenPerson <const> = dt.DataTable({name='string'}, {frozen=true})
+  local FrozenPerson <const> = dt.DataTable({name=dt.StringSlot}, {frozen=true})
   lu.assertTrue(FrozenPerson.frozen)
 end
 
 function test_datatable_type.test_is_instance()
-  local instance <const> = dt.DataTable{slot='any'}
+  local instance <const> = dt.DataTable{slot=dt.AnySlot}
   lu.assertTrue(dt.DataTable.is(instance))
   lu.assertFalse(dt.DataTable.is({}))
 end
@@ -138,7 +138,7 @@ function test_datatable.test_lifecycle()
   collectgarbage('collect')
   local initial_count = countTableKeys(dt.datatable_instance_private)
 
-  local Mock <const> = dt.DataTable{slot='any'}
+  local Mock <const> = dt.DataTable{slot=dt.AnySlot}
   local instance = Mock{slot='foo'}
   lu.assertEquals(countTableKeys(dt.datatable_instance_private), initial_count + 1)
 
@@ -195,11 +195,11 @@ end
 
 function test_datatable.test_default_slots()
   local Person <const> = dt.DataTable{
-    alive='boolean',
-    name='string',
-    age='integer',
-    height='number',
-    aliases='table'
+    alive=dt.BooleanSlot,
+    name=dt.StringSlot,
+    age=dt.IntegerSlot,
+    height=dt.NumberSlot,
+    aliases=dt.TableSlot
   }
 
   local john_doe <const> = Person{
@@ -273,7 +273,7 @@ function test_datatable.test_default_slots()
 end
 
 function test_datatable.test_frozen()
-  local Person <const> = dt.DataTable({name='string'}, {frozen=true})
+  local Person <const> = dt.DataTable({name=dt.StringSlot}, {frozen=true})
   local john_doe <const> = Person{name='John Doe'}
 
   lu.assertErrorMsgContains(
@@ -299,8 +299,8 @@ end
 
 function test_datatable.test_validator()
   local IntegerRange <const> = dt.DataTable({
-    low='integer',
-    high='integer'
+    low=dt.IntegerSlot,
+    high=dt.IntegerSlot
   }, {
     validator=(function (data)
       if data.low > data.high then
@@ -332,11 +332,11 @@ end
 
 function test_datatable.test_data_pairs_enumeration()
   local Person <const> = dt.DataTable{
-    alive='boolean',
-    name='string',
-    age='integer',
-    height='number',
-    aliases='table'
+    alive=dt.BooleanSlot,
+    name=dt.StringSlot,
+    age=dt.IntegerSlot,
+    height=dt.NumberSlot,
+    aliases=dt.TableSlot
   }
 
   local data <const> = {
@@ -358,10 +358,10 @@ function test_datatable.test_data_pairs_enumeration()
 end
 
 function test_datatable.test_is_instance()
-  local CountA <const> = dt.DataTable{count='integer'}
+  local CountA <const> = dt.DataTable{count=dt.IntegerSlot}
   local count_a <const> = CountA{count=10}
 
-  local CountB <const> = dt.DataTable{count='integer'}
+  local CountB <const> = dt.DataTable{count=dt.IntegerSlot}
   local count_b <const> = CountB{count=10}
 
   lu.assertTrue(CountA.is(count_a))
