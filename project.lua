@@ -44,6 +44,88 @@ end
 -- TODO: validator method guard rails
 -- TODO: formatter method guard rails
 
+function test_slot.test_create_array_table_slot()
+  local values_slot <const> = dt.IntegerSlot
+  local array_slot <const> = dt.create_array_table_slot{
+    contiguous=true,
+    min_keys=3,
+    max_keys=5,
+    values=values_slot
+  }
+
+  lu.assertTrue(dt.Slot.is(array_slot))
+
+  local valid_value <const> = {1, 2, 3, 4}
+  local value, message = array_slot('validate', valid_value)
+  lu.assertEquals(value, valid_value)
+  lu.assertNil(message)
+
+  local value, message = array_slot('validate', {})
+  lu.assertNil(value)
+  lu.assertEquals(message, "array must contain at least 3 keys")
+
+  local value, message = array_slot('validate', {1, 2, 3, 4, 5, 6})
+  lu.assertNil(value)
+  lu.assertEquals(message, "array must contain no more than 5 keys")
+
+  local value, message = array_slot('validate', {1, 2, 3, [10]=4})
+  lu.assertNil(value)
+  lu.assertEquals(message, "array must be contiguous")
+
+  local value, message = array_slot('validate', {['foo']=1})
+  lu.assertNil(value)
+  lu.assertEquals(message, "array table keys must be integers")
+
+  local invalid_value <const> = 10.5
+  local internal_value, internal_message = values_slot('validate', invalid_value)
+  lu.assertNil(internal_value)
+  lu.assertTrue(string.len(internal_message) > 0)
+
+  local value, message = array_slot('validate', {invalid_value})
+  lu.assertNil(value)
+  lu.assertEquals(message, "array table value invalid: " .. internal_message)
+
+  -- TODO: formatting
+end
+
+function test_slot.test_create_map_table_slot()
+  local keys_slot <const> = dt.StringSlot
+  local values_slot <const> = dt.IntegerSlot
+  local map_slot <const> = dt.create_map_table_slot{
+    keys=keys_slot,
+    values=values_slot
+  }
+
+  lu.assertTrue(dt.Slot.is(map_slot))
+
+  local valid_value <const> = {['score']=10}
+  local value, message = map_slot('validate', valid_value)
+  lu.assertEquals(value, valid_value)
+  lu.assertNil(message)
+
+  local invalid_map_key <const> = 10.5
+  local internal_key_value, internal_key_message = keys_slot('validate', invalid_map_key)
+  lu.assertNil(internal_key_value)
+  lu.assertTrue(string.len(internal_key_message) > 0)
+
+  local invalid_map_by_key <const> = {[invalid_map_key]=10}
+  local value, message = map_slot('validate', invalid_map_by_key)
+  lu.assertNil(value)
+  lu.assertEquals(message, "map table key: " .. internal_key_message)
+
+  local invalid_map_value <const> = 10.5
+  local internal_value_value, internal_value_message = values_slot('validate', invalid_map_value)
+  lu.assertNil(internal_value_value)
+  lu.assertTrue(string.len(internal_value_message) > 0)
+
+  local invalid_map_by_value <const> = {['score']=invalid_map_value}
+  local value, message = map_slot('validate', invalid_map_by_value)
+  lu.assertNil(value)
+  lu.assertEquals(message, "map table value: " .. internal_value_message)
+
+  -- TODO: formatting
+end
+
 function test_slot.test_optional_wrapper()
   -- internal slot works as expected
   local internal_slot <const> = dt.AnySlot
