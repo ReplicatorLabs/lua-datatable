@@ -507,6 +507,24 @@ local DataTable <const> = setmetatable({
 })
 
 --[[
+DataTable Slot Wrapper
+--]]
+
+local function DataTableSlot(datatable_type)
+  assert(DataTable.is(datatable_type), "datatable_type must be a DataTable type instance")
+
+  return Slot.create(function (value)
+    if datatable_type.is(value) then
+      return value
+    end
+
+    return nil, "value must be an instance of datatable: " .. tostring(datatable_type)
+  end, function (value)
+    return tostring(datatable_type)
+  end)
+end
+
+--[[
 Module Interface
 --]]
 
@@ -529,6 +547,7 @@ local module = {
 
   -- slot wrappers
   Optional=Optional,
+  DataTableSlot=DataTableSlot,
 
   -- datatable
   DataTable=DataTable

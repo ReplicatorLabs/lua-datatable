@@ -240,6 +240,24 @@ function test_datatable_type.test_is_instance()
   lu.assertFalse(dt.DataTable.is({}))
 end
 
+function test_datatable_type.test_slot_wrapper()
+  local Mock <const> = dt.DataTable{name=dt.StringSlot}
+  local instance <const> = Mock{name='alex'}
+
+  local mock_slot <const> = dt.DataTableSlot(Mock)
+  lu.assertTrue(dt.Slot.is(mock_slot))
+
+  local value, message = mock_slot('validate', instance)
+  lu.assertEquals(value, instance)
+  lu.assertNil(message)
+
+  local value, message = mock_slot('validate', 'obviously-not-a-slot')
+  lu.assertNil(value)
+  lu.assertStrContains(message, "value must be an instance of datatable: DataTableType: ")
+
+  -- TODO: formatting
+end
+
 -- datatable instance tests
 test_datatable = {}
 
