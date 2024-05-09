@@ -403,8 +403,15 @@ function test_datatable.test_default_slots()
 end
 
 function test_datatable.test_frozen()
-  local Person <const> = dt.DataTable({name=dt.StringSlot}, {frozen=true})
-  local john_doe <const> = Person{name='John Doe'}
+  local FrozenPerson <const> = dt.DataTable({name=dt.StringSlot}, {frozen=true})
+  local john_doe <const> = FrozenPerson{name='John Doe'}
+
+  lu.assertErrorMsgContains(
+    "DataTable type is frozen so instances must also be frozen",
+    FrozenPerson,
+    {name='John Doe'},
+    {frozen=false}
+  )
 
   lu.assertErrorMsgContains(
     "DataTable slot not found: missing_slot",
@@ -417,11 +424,24 @@ function test_datatable.test_frozen()
   )
 
   lu.assertErrorMsgContains(
-    "DataTable type is frozen",
+    "DataTable instance is frozen",
     function (i, k, v)
       i[k] = v
     end,
     john_doe,
+    'name',
+    'test'
+  )
+
+  local Person <const> = dt.DataTable{name=dt.StringSlot}
+  local jane_doe <const> = Person({name='Jane Doe'}, {frozen=true})
+
+  lu.assertErrorMsgContains(
+    "DataTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    jane_doe,
     'name',
     'test'
   )

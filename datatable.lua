@@ -317,7 +317,7 @@ local datatable_instance_internal_metatable <const> = {
     )
 
     local slot <const> = assert(datatable.slots[key], "DataTable slot not found: " .. tostring(key))
-    assert(not datatable.frozen, "DataTable type is frozen")
+    assert(not private.frozen, "DataTable instance is frozen")
 
     local value, message = slot('validate', value)
     if message then
@@ -415,7 +415,7 @@ local datatable_type_internal_metatable <const> = {
   __newindex = function (_, _, _)
     error("DataTable definition cannot be modified")
   end,
-  __call = function (self, data)
+  __call = function (self, value_data, flag_data)
     local private <const> = assert(
       datatable_type_private[self],
       "DataTable type not recognized: " .. tostring(self)
@@ -423,7 +423,7 @@ local datatable_type_internal_metatable <const> = {
   
     local initial_data <const> = {}
     for name, slot in pairs(private.slots) do
-      local value, message = slot('validate', data[name])
+      local value, message = slot('validate', value_data[name])
       if message then
         error("DataTable slot '" .. name .. "': " .. message)
       end
@@ -437,10 +437,28 @@ local datatable_type_internal_metatable <const> = {
       error("DataTable instance data is not valid: " .. message)
     end
 
+    local flags <const> = flag_data or {}
+    if type(flags) ~= 'table' then
+      error("DataTable instance flags must be a table")
+    end
+
+    local frozen <const> = flags['frozen']
+    if frozen ~= nil then
+      if type(frozen) ~= 'boolean' then
+        error("DataTable instance frozen flag must be a boolean")
+      end
+
+      if private.frozen and not frozen then
+        error("DataTable type is frozen so instances must also be frozen")
+      end
+    end
+
+    local instance_frozen <const> = (frozen or private.frozen)
     local instance <const> = {}
     datatable_instance_private[instance] = {
       datatable=self,
-      data=initial_data
+      data=initial_data,
+      frozen=instance_frozen
     }
 
     return setmetatable(instance, datatable_instance_internal_metatable)
