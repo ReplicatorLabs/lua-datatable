@@ -403,6 +403,7 @@ function test_datatable.test_default_slots()
 end
 
 function test_datatable.test_frozen()
+  -- datatable with instances that are always frozen
   local FrozenPerson <const> = dt.DataTable({name=dt.StringSlot}, {frozen=true})
   local john_doe <const> = FrozenPerson{name='John Doe'}
 
@@ -433,6 +434,7 @@ function test_datatable.test_frozen()
     'test'
   )
 
+  -- datatable with instances frozen on creation
   local Person <const> = dt.DataTable{name=dt.StringSlot}
   local jane_doe <const> = Person({name='Jane Doe'}, {frozen=true})
 
@@ -444,6 +446,72 @@ function test_datatable.test_frozen()
     jane_doe,
     'name',
     'test'
+  )
+
+  -- datatable with instances frozen on demand
+  local billy_smith <const> = Person{name='Billy Smith'}
+  lu.assertFalse(Person.is_frozen(billy_smith))
+
+  Person.freeze(billy_smith)
+  lu.assertTrue(Person.is_frozen(billy_smith))
+
+  lu.assertErrorMsgContains(
+    "DataTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    billy_smith,
+    'name',
+    'test'
+  )
+end
+
+function test_datatable.test_freezing_nested()
+  local Point <const> = dt.DataTable{x=dt.IntegerSlot, y=dt.IntegerSlot}
+  local Line <const> = dt.DataTable{
+    a=dt.DataTableSlot(Point),
+    b=dt.DataTableSlot(Point)
+  }
+
+  local instance <const> = Line{
+    a=Point{x=0, y=0},
+    b=Point{x=100, y=100}
+  }
+
+  instance.a = Point{x=-10, y=-10}
+  instance.b.y = 75
+
+  local returned_instance <const> = Line.freeze(instance)
+  lu.assertEquals(returned_instance, instance)
+
+  lu.assertErrorMsgContains(
+    "DataTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance,
+    'a',
+    Point{x=0, y=0}
+  )
+
+  lu.assertErrorMsgContains(
+    "DataTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance.a,
+    'x',
+    10
+  )
+
+  lu.assertErrorMsgContains(
+    "DataTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance.b,
+    'y',
+    10
   )
 end
 

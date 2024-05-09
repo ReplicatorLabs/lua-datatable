@@ -288,6 +288,40 @@ local datatable_instance_metatable <const> = {}
 local datatable_instance_private <const> = setmetatable({}, {__mode='k'})
 
 -- instance implementation
+local datatable_instance_freeze <const> = function (self)
+  local private <const> = assert(
+    datatable_instance_private[self],
+    "DataTable instance not recognized: " .. tostring(self)
+  )
+
+  -- use breadth-first search starting from this datatable instance to find
+  -- all the nested datatables and freeze them
+  local instances <const> = {private}
+  while #instances > 0 do
+    local instance <const> = table.remove(instances, 1)
+    instance.frozen = true
+
+    for key, value in pairs(instance.data) do
+      if getmetatable(value) == datatable_instance_metatable then
+        local instance <const> = datatable_instance_private[value]
+        table.insert(instances, instance)
+      end
+    end
+  end
+
+  -- return the datatable instance to make chaining and returning it easy
+  return self
+end
+
+local datatable_instance_is_frozen <const> = function (self)
+  local private <const> = assert(
+    datatable_instance_private[self],
+    "DataTable instance not recognized: " .. tostring(self)
+  )
+
+  return private.frozen
+end
+
 local datatable_instance_internal_metatable <const> = {
   __name = 'DataTable',
   __metatable = datatable_instance_metatable,
@@ -406,11 +440,13 @@ local datatable_type_internal_metatable <const> = {
 
         return (instance_private.datatable == self)
       end
+    elseif key == 'freeze' then
+      return datatable_instance_freeze
+    elseif key == 'is_frozen' then
+      return datatable_instance_is_frozen
     else
       return nil
     end
-
-    return private.slots[key]
   end,
   __newindex = function (_, _, _)
     error("DataTable definition cannot be modified")
