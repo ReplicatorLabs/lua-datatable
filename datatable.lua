@@ -324,6 +324,9 @@ local datatable_instance_internal_metatable <const> = {
       error("DataTable slot '" .. key .. "': " .. message)
     end
 
+    -- TODO: use a flag to toggle whether we should always run the datatable
+    -- validator or not, we may want to delay that until later
+
     local previous_value <const> = private.data[key]
     private.data[key] = value
 
@@ -424,10 +427,32 @@ local datatable_type_is_frozen <const> = function (self, instance)
   return private.frozen
 end
 
+local datatable_type_validate <const> = function (self, instance)
+  local private <const> = assert(
+    datatable_instance_private[instance],
+    "DataTable instance not recognized: " .. tostring(instance)
+  )
+
+  assert(private.datatable == self, "DataTable type method used with incompatible type")
+  local datatable <const> = assert(
+    datatable_type_private[private.datatable],
+    "DataTable type not recognized: " .. tostring(private.datatable)
+  )
+
+  local message = datatable.validator(private.data)
+  if message ~= nil then
+    assert(type(message) == 'string', "DataTable validator function must return a string message")
+    return false, message
+  end
+
+  return true, nil
+end
+
 local datatable_type_class_methods <const> = {
   ['is']=datatable_type_is,
   ['freeze']=datatable_type_freeze,
-  ['is_frozen']=datatable_type_is_frozen
+  ['is_frozen']=datatable_type_is_frozen,
+  ['validate']=datatable_type_validate,
 }
 
 local datatable_type_internal_metatable <const> = {

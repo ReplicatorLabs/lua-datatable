@@ -520,6 +520,8 @@ function test_datatable.test_freezing_nested()
 end
 
 function test_datatable.test_validator()
+  -- always validate on datatable instance mutation
+  -- TODO: use flag to toggle this behavior
   local IntegerRange <const> = dt.DataTable({
     low=dt.IntegerSlot,
     high=dt.IntegerSlot
@@ -550,6 +552,38 @@ function test_datatable.test_validator()
     IntegerRange,
     {low=20, high=10}
   )
+
+  -- validate datatable instance on demand
+  -- TODO: use flag to toggle this
+  local Point <const> = dt.DataTable{x=dt.IntegerSlot, y=dt.IntegerSlot}
+  local Vector <const> = dt.DataTable({
+    from=dt.DataTableSlot(Point),
+    to=dt.DataTableSlot(Point)
+  }, {
+    validator=(function (data)
+      local from_normal = math.sqrt((data.from.x ^ 2) + (data.from.y ^ 2))
+      local to_normal = math.sqrt((data.to.x ^ 2) + (data.to.y ^ 2))
+      if from_normal > to_normal then
+        return "vector is not pointing away from the origin"
+      end
+    end)
+  })
+
+  local vector <const> = Vector{
+    from=Point{x=10, y=10},
+    to=Point{x=100, y=100}
+  }
+
+  local valid, message = Vector:validate(vector)
+  lu.assertTrue(valid)
+  lu.assertNil(message)
+
+  vector.from.x=1000
+  vector.from.y=1000
+
+  local valid, message = Vector:validate(vector)
+  lu.assertFalse(valid)
+  lu.assertEquals(message, "vector is not pointing away from the origin")
 end
 
 function test_datatable.test_data_pairs_enumeration()
