@@ -554,7 +554,7 @@ function test_datatable.test_validator()
   )
 
   -- validate datatable instance on demand
-  -- TODO: use flag to toggle this
+  -- XXX: not necessary if we always validate on mutation
   local Point <const> = dt.DataTable{x=dt.IntegerSlot, y=dt.IntegerSlot}
   local Vector <const> = dt.DataTable({
     from=dt.DataTableSlot(Point),
@@ -569,21 +569,31 @@ function test_datatable.test_validator()
     end)
   })
 
-  local vector <const> = Vector{
+  local sample_vector <const> = Vector{
     from=Point{x=10, y=10},
     to=Point{x=100, y=100}
   }
 
-  local valid, message = Vector:validate(vector)
+  local valid, message = Vector:validate(sample_vector)
   lu.assertTrue(valid)
   lu.assertNil(message)
 
-  vector.from.x=1000
-  vector.from.y=1000
+  sample_vector.from.x = 1000
+  sample_vector.from.y = 1000
 
-  local valid, message = Vector:validate(vector)
+  local valid, message = Vector:validate(sample_vector)
+  local expected_message <const> = "vector is not pointing away from the origin"
   lu.assertFalse(valid)
-  lu.assertEquals(message, "vector is not pointing away from the origin")
+  lu.assertEquals(message, expected_message)
+
+  -- validate on freeze
+  -- XXX: not necessary if we always validate on mutation
+  lu.assertErrorMsgContains(
+    "DataTable instance data is not valid: " .. expected_message,
+    Vector.freeze,
+    Vector,
+    sample_vector
+  )
 end
 
 function test_datatable.test_data_pairs_enumeration()

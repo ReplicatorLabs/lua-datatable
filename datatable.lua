@@ -397,6 +397,17 @@ local datatable_type_freeze <const> = function (self, instance)
   )
 
   assert(private.datatable == self, "DataTable type method used with incompatible type")
+  local datatable <const> = assert(
+    datatable_type_private[private.datatable],
+    "DataTable type not recognized: " .. tostring(private.datatable)
+  )
+
+  -- validate the instance first
+  local message <const> = datatable.validator(private.data)
+  if message ~= nil then
+    assert(type(message) == 'string', "DataTable validator function must return a string message")
+    error("DataTable instance data is not valid: " .. message)
+  end
 
   -- use breadth-first search starting from this datatable instance to find
   -- all the nested datatables and freeze them
