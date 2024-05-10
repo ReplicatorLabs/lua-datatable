@@ -474,8 +474,8 @@ local datatable_type_internal_metatable <const> = {
 
       return slots
     -- datatable frozen flag
-    elseif key == 'frozen' then
-      return private.frozen
+    elseif key == 'freeze_instances' then
+      return private.freeze_instances
     -- class methods
     elseif datatable_type_class_methods[key] ~= nil then
       return datatable_type_class_methods[key]
@@ -520,12 +520,12 @@ local datatable_type_internal_metatable <const> = {
         error("DataTable instance frozen flag must be a boolean")
       end
 
-      if private.frozen and not frozen then
-        error("DataTable type is frozen so instances must also be frozen")
+      if private.freeze_instances and not frozen then
+        error("DataTable type freeze_instances requires instances to also be frozen")
       end
     end
 
-    local instance_frozen <const> = (frozen or private.frozen)
+    local instance_frozen <const> = (frozen or private.freeze_instances)
     local instance <const> = {}
     datatable_instance_private[instance] = {
       datatable=self,
@@ -552,9 +552,9 @@ local DataTable <const> = setmetatable({
       error("DataTable flags must be a table")
     end
 
-    local frozen <const> = (flag_data['frozen'] or false)
-    if type(frozen) ~= 'boolean' then
-      error("DataTable frozen flag must be a boolean")
+    local freeze_instances <const> = (flag_data['freeze_instances'] or false)
+    if type(freeze_instances) ~= 'boolean' then
+      error("DataTable freeze_instances flag must be a boolean")
     end
 
     local validator <const> = (flag_data['validator'] or (function (_) return end))
@@ -581,7 +581,7 @@ local DataTable <const> = setmetatable({
     local instance <const> = {}
     datatable_type_private[instance] = {
       slots=slots,
-      frozen=frozen,
+      freeze_instances=freeze_instances,
       validator=validator
     }
 

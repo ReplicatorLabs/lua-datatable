@@ -228,10 +228,10 @@ end
 
 function test_datatable_type.test_frozen()
   local MutablePerson <const> = dt.DataTable{name=dt.StringSlot}
-  lu.assertFalse(MutablePerson.frozen)
+  lu.assertFalse(MutablePerson.freeze_instances)
 
-  local FrozenPerson <const> = dt.DataTable({name=dt.StringSlot}, {frozen=true})
-  lu.assertTrue(FrozenPerson.frozen)
+  local FrozenPerson <const> = dt.DataTable({name=dt.StringSlot}, {freeze_instances=true})
+  lu.assertTrue(FrozenPerson.freeze_instances)
 end
 
 function test_datatable_type.test_is_instance()
@@ -404,11 +404,11 @@ end
 
 function test_datatable.test_frozen()
   -- datatable with instances that are always frozen
-  local FrozenPerson <const> = dt.DataTable({name=dt.StringSlot}, {frozen=true})
-  lu.assertTrue(FrozenPerson.frozen)
+  local FrozenPerson <const> = dt.DataTable({name=dt.StringSlot}, {freeze_instances=true})
+  lu.assertTrue(FrozenPerson.freeze_instances)
 
   lu.assertErrorMsgContains(
-    "DataTable type is frozen so instances must also be frozen",
+    "DataTable type freeze_instances requires instances to also be frozen",
     FrozenPerson,
     {name='John Doe'},
     {frozen=false}
@@ -438,7 +438,7 @@ function test_datatable.test_frozen()
 
   -- datatable with instances frozen on creation
   local Person <const> = dt.DataTable{name=dt.StringSlot}
-  lu.assertFalse(Person.frozen)
+  lu.assertFalse(Person.freeze_instances)
 
   local jane_doe <const> = Person({name='Jane Doe'}, {frozen=true})
 

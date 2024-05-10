@@ -35,17 +35,18 @@ local Employee <const> = dt.DataTable({
     return value
   end)
 }, {  -- flags are all optional
-  frozen=false,
-  validator=function (data)
+  freeze_instances=false,
+  validator=(function (data)
     if data.active and data.vacation_days <= 5 then
-      -- returning a non-nil value will cause an error when creating an instance
+      -- returning a non-nil value will cause an error when creating an
+      -- instance or mutating an existing instance
       return "All active employees must receive at least 5 vacation days."
     end
-  end
+  end)
 })
 
 assert(dt.DataTable.is(Employee))
-assert(not Employee.frozen)
+assert(not Employee.freeze_instances)
 for name, slot in pairs(Employee.slots) do
   print("Slot: " .. name)
 end
@@ -85,6 +86,7 @@ local employee_john_doe <const> = Employee{
 }
 
 assert(Employee:is(employee_john_doe))
+assert(not Employee:is_frozen(employee_john_doe))
 
 -- read and write slot values
 employee_john_doe.active = false
