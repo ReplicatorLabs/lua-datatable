@@ -405,7 +405,7 @@ end
 function test_datatable.test_frozen()
   -- datatable with instances that are always frozen
   local FrozenPerson <const> = dt.DataTable({name=dt.StringSlot}, {frozen=true})
-  local john_doe <const> = FrozenPerson{name='John Doe'}
+  lu.assertTrue(FrozenPerson.frozen)
 
   lu.assertErrorMsgContains(
     "DataTable type is frozen so instances must also be frozen",
@@ -413,6 +413,8 @@ function test_datatable.test_frozen()
     {name='John Doe'},
     {frozen=false}
   )
+
+  local john_doe <const> = FrozenPerson{name='John Doe'}
 
   lu.assertErrorMsgContains(
     "DataTable slot not found: missing_slot",
@@ -436,6 +438,8 @@ function test_datatable.test_frozen()
 
   -- datatable with instances frozen on creation
   local Person <const> = dt.DataTable{name=dt.StringSlot}
+  lu.assertFalse(Person.frozen)
+
   local jane_doe <const> = Person({name='Jane Doe'}, {frozen=true})
 
   lu.assertErrorMsgContains(
@@ -450,10 +454,10 @@ function test_datatable.test_frozen()
 
   -- datatable with instances frozen on demand
   local billy_smith <const> = Person{name='Billy Smith'}
-  lu.assertFalse(Person.is_frozen(billy_smith))
+  lu.assertFalse(Person:is_frozen(billy_smith))
 
-  Person.freeze(billy_smith)
-  lu.assertTrue(Person.is_frozen(billy_smith))
+  Person:freeze(billy_smith)
+  lu.assertTrue(Person:is_frozen(billy_smith))
 
   lu.assertErrorMsgContains(
     "DataTable instance is frozen",
@@ -481,7 +485,7 @@ function test_datatable.test_freezing_nested()
   instance.a = Point{x=-10, y=-10}
   instance.b.y = 75
 
-  local returned_instance <const> = Line.freeze(instance)
+  local returned_instance <const> = Line:freeze(instance)
   lu.assertEquals(returned_instance, instance)
 
   lu.assertErrorMsgContains(
@@ -582,14 +586,14 @@ function test_datatable.test_is_instance()
   local CountB <const> = dt.DataTable{count=dt.IntegerSlot}
   local count_b <const> = CountB{count=10}
 
-  lu.assertTrue(CountA.is(count_a))
-  lu.assertTrue(CountB.is(count_b))
+  lu.assertTrue(CountA:is(count_a))
+  lu.assertTrue(CountB:is(count_b))
 
-  lu.assertFalse(CountA.is(count_b))
-  lu.assertFalse(CountB.is(count_a))
+  lu.assertFalse(CountA:is(count_b))
+  lu.assertFalse(CountB:is(count_a))
 
-  lu.assertFalse(CountA.is(CountA))
-  lu.assertFalse(CountA.is({}))
+  lu.assertFalse(CountA:is(CountA))
+  lu.assertFalse(CountA:is({}))
 end
 
 --[[

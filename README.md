@@ -84,7 +84,7 @@ local employee_john_doe <const> = Employee{
   vacation_days=(5 * 4)
 }
 
-assert(Employee.is(employee_john_doe))
+assert(Employee:is(employee_john_doe))
 
 -- read and write slot values
 employee_john_doe.active = false
@@ -94,12 +94,12 @@ print("Full Name: " .. employee_john_doe.full_name)
 print("Vacation Days: " .. tostring(employee_john_doe.vacation_days))
 
 -- freeze the datatable instance to prevent modifications
-Employee.freeze(employee_john_doe)
-assert(Employee.is_frozen(employee_john_doe))
+Employee:freeze(employee_john_doe)
+assert(Employee:is_frozen(employee_john_doe))
 
 -- enumerate slot (key, value) pairs
 for key, value in pairs(employee_john_doe) do
-  print("Employee['" .. key .. "'] -> " .. tostring(value)) -- Ex: Employee['active'] -> False
+  print("Employee['" .. key .. "'] -> " .. tostring(value)) -- Ex: Employee['active'] -> false
 end
 ```
 

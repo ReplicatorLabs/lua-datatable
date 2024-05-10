@@ -288,40 +288,6 @@ local datatable_instance_metatable <const> = {}
 local datatable_instance_private <const> = setmetatable({}, {__mode='k'})
 
 -- instance implementation
-local datatable_instance_freeze <const> = function (self)
-  local private <const> = assert(
-    datatable_instance_private[self],
-    "DataTable instance not recognized: " .. tostring(self)
-  )
-
-  -- use breadth-first search starting from this datatable instance to find
-  -- all the nested datatables and freeze them
-  local instances <const> = {private}
-  while #instances > 0 do
-    local instance <const> = table.remove(instances, 1)
-    instance.frozen = true
-
-    for key, value in pairs(instance.data) do
-      if getmetatable(value) == datatable_instance_metatable then
-        local instance <const> = datatable_instance_private[value]
-        table.insert(instances, instance)
-      end
-    end
-  end
-
-  -- return the datatable instance to make chaining and returning it easy
-  return self
-end
-
-local datatable_instance_is_frozen <const> = function (self)
-  local private <const> = assert(
-    datatable_instance_private[self],
-    "DataTable instance not recognized: " .. tostring(self)
-  )
-
-  return private.frozen
-end
-
 local datatable_instance_internal_metatable <const> = {
   __name = 'DataTable',
   __metatable = datatable_instance_metatable,
@@ -408,6 +374,62 @@ local datatable_instance_internal_metatable <const> = {
 }
 
 -- type implementation
+local datatable_type_is <const> = function (self, value)
+  if getmetatable(value) ~= datatable_instance_metatable then
+    return false
+  end
+
+  local private <const> = assert(
+    datatable_instance_private[value],
+    "DataTable instance not recognized: " .. tostring(value)
+  )
+
+  return (private.datatable == self)
+end
+
+local datatable_type_freeze <const> = function (self, instance)
+  local private <const> = assert(
+    datatable_instance_private[instance],
+    "DataTable instance not recognized: " .. tostring(instance)
+  )
+
+  assert(private.datatable == self, "DataTable type method used with incompatible type")
+
+  -- use breadth-first search starting from this datatable instance to find
+  -- all the nested datatables and freeze them
+  local instances <const> = {private}
+  while #instances > 0 do
+    local instance_private <const> = table.remove(instances, 1)
+    instance_private.frozen = true
+
+    for key, value in pairs(instance_private.data) do
+      if getmetatable(value) == datatable_instance_metatable then
+        local instance_private <const> = datatable_instance_private[value]
+        table.insert(instances, instance_private)
+      end
+    end
+  end
+
+  -- return the datatable instance to make chaining and returning it easy
+  return instance
+end
+
+local datatable_type_is_frozen <const> = function (self, instance)
+  local private <const> = assert(
+    datatable_instance_private[instance],
+    "DataTable instance not recognized: " .. tostring(self)
+  )
+
+  assert(private.datatable == self, "DataTable type method used with incompatible type")
+  return private.frozen
+end
+
+local datatable_type_class_methods <const> = {
+  ['is']=datatable_type_is,
+  ['freeze']=datatable_type_freeze,
+  ['is_frozen']=datatable_type_is_frozen
+}
+
 local datatable_type_internal_metatable <const> = {
   __name = 'DataTableType',
   __metatable = datatable_type_metatable,
@@ -417,33 +439,22 @@ local datatable_type_internal_metatable <const> = {
       "DataTable type not recognized: " .. tostring(self)
     )
 
+    -- datatable type slots
     if key == 'slots' then
-      -- shallow copy to prevent changing defined slots
+      -- shallow copy to prevent mutation
       local slots <const> = {}
       for name, slot in pairs(private.slots) do
         slots[name] = slot
       end
 
       return slots
+    -- datatable frozen flag
     elseif key == 'frozen' then
       return private.frozen
-    elseif key == 'is' then
-      return function (value)
-        if getmetatable(value) ~= datatable_instance_metatable then
-          return false
-        end
-
-        local instance_private <const> = assert(
-          datatable_instance_private[value],
-          "DataTable instance not recognized: " .. tostring(value)
-        )
-
-        return (instance_private.datatable == self)
-      end
-    elseif key == 'freeze' then
-      return datatable_instance_freeze
-    elseif key == 'is_frozen' then
-      return datatable_instance_is_frozen
+    -- class methods
+    elseif datatable_type_class_methods[key] ~= nil then
+      return datatable_type_class_methods[key]
+    -- unknown key
     else
       return nil
     end
@@ -568,7 +579,7 @@ local function DataTableSlot(datatable_type)
   assert(DataTable.is(datatable_type), "datatable_type must be a DataTable type instance")
 
   return Slot.create(function (value)
-    if datatable_type.is(value) then
+    if datatable_type:is(value) then
       return value
     end
 
