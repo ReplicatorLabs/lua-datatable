@@ -109,12 +109,10 @@ See the unit tests for more exhaustive examples.
 
 ## Tests
 
-Make sure you have the submodules available and run the `project.lua` file as
-a script to run the tests:
+Run the project `test` command with the `LUA_DATATABLE_LEAK_INTERNALS` environment variable set to run tests:
 
 ```
-git submodule update --init --recursive
-env LUA_DATATABLE_LEAK_INTERNALS=TRUE lua ./project.lua
+env LUA_DATATABLE_LEAK_INTERNALS=TRUE ./project.lua test
 ```
 
 ## Roadmap
