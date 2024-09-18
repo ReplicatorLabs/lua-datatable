@@ -36,88 +36,6 @@ end
 -- TODO: validator method guard rails
 -- TODO: formatter method guard rails
 
-function test_slot.test_create_array_table_slot()
-  local values_slot <const> = dt.IntegerSlot
-  local array_slot <const> = dt.create_array_table_slot{
-    contiguous=true,
-    min_keys=3,
-    max_keys=5,
-    values=values_slot
-  }
-
-  lu.assertTrue(dt.Slot.is(array_slot))
-
-  local valid_value <const> = {1, 2, 3, 4}
-  local value, message = array_slot('validate', valid_value)
-  lu.assertEquals(value, valid_value)
-  lu.assertNil(message)
-
-  local value, message = array_slot('validate', {})
-  lu.assertNil(value)
-  lu.assertEquals(message, "array must contain at least 3 keys")
-
-  local value, message = array_slot('validate', {1, 2, 3, 4, 5, 6})
-  lu.assertNil(value)
-  lu.assertEquals(message, "array must contain no more than 5 keys")
-
-  local value, message = array_slot('validate', {1, 2, 3, [10]=4})
-  lu.assertNil(value)
-  lu.assertEquals(message, "array must be contiguous")
-
-  local value, message = array_slot('validate', {['foo']=1})
-  lu.assertNil(value)
-  lu.assertEquals(message, "array table keys must be integers")
-
-  local invalid_value <const> = 10.5
-  local internal_value, internal_message = values_slot('validate', invalid_value)
-  lu.assertNil(internal_value)
-  lu.assertTrue(string.len(internal_message) > 0)
-
-  local value, message = array_slot('validate', {invalid_value})
-  lu.assertNil(value)
-  lu.assertEquals(message, "array table value invalid: " .. internal_message)
-
-  -- TODO: formatting
-end
-
-function test_slot.test_create_map_table_slot()
-  local keys_slot <const> = dt.StringSlot
-  local values_slot <const> = dt.IntegerSlot
-  local map_slot <const> = dt.create_map_table_slot{
-    keys=keys_slot,
-    values=values_slot
-  }
-
-  lu.assertTrue(dt.Slot.is(map_slot))
-
-  local valid_value <const> = {['score']=10}
-  local value, message = map_slot('validate', valid_value)
-  lu.assertEquals(value, valid_value)
-  lu.assertNil(message)
-
-  local invalid_map_key <const> = 10.5
-  local internal_key_value, internal_key_message = keys_slot('validate', invalid_map_key)
-  lu.assertNil(internal_key_value)
-  lu.assertTrue(string.len(internal_key_message) > 0)
-
-  local invalid_map_by_key <const> = {[invalid_map_key]=10}
-  local value, message = map_slot('validate', invalid_map_by_key)
-  lu.assertNil(value)
-  lu.assertEquals(message, "map table key: " .. internal_key_message)
-
-  local invalid_map_value <const> = 10.5
-  local internal_value_value, internal_value_message = values_slot('validate', invalid_map_value)
-  lu.assertNil(internal_value_value)
-  lu.assertTrue(string.len(internal_value_message) > 0)
-
-  local invalid_map_by_value <const> = {['score']=invalid_map_value}
-  local value, message = map_slot('validate', invalid_map_by_value)
-  lu.assertNil(value)
-  lu.assertEquals(message, "map table value: " .. internal_value_message)
-
-  -- TODO: formatting
-end
-
 function test_slot.test_optional_wrapper()
   -- internal slot works as expected
   local internal_slot <const> = dt.AnySlot
@@ -198,7 +116,6 @@ function test_datatable_type.test_default_slots()
     name=dt.StringSlot,
     age=dt.IntegerSlot,
     height=dt.NumberSlot,
-    aliases=dt.TableSlot
   }
 
   local expected_slot_names <const> = {
@@ -206,7 +123,6 @@ function test_datatable_type.test_default_slots()
     ['name']=true,
     ['age']=true,
     ['height']=true,
-    ['aliases']=true
   }
 
   for name, slot in pairs(Person.slots) do
@@ -318,7 +234,6 @@ function test_datatable.test_default_slots()
     name=dt.StringSlot,
     age=dt.IntegerSlot,
     height=dt.Optional(dt.NumberSlot),
-    aliases=dt.TableSlot
   }
 
   local john_doe <const> = Person{
@@ -326,14 +241,12 @@ function test_datatable.test_default_slots()
     name='John Doe',
     age=18,
     height=80.5,
-    aliases={'Johnny'}
   }
 
   lu.assertEquals(john_doe.alive, true)
   lu.assertEquals(john_doe.name, 'John Doe')
   lu.assertEquals(john_doe.age, 18)
   lu.assertEquals(john_doe.height, 80.5)
-  lu.assertEquals(john_doe.aliases, {'Johnny'})
 
   john_doe.alive = false
   lu.assertErrorMsgContains(
@@ -381,17 +294,6 @@ function test_datatable.test_default_slots()
 
   john_doe.height = nil
   lu.assertNil(john_doe.height)
-
-  john_doe.aliases = {}
-  lu.assertErrorMsgContains(
-    "DataTable slot 'aliases': slot value must be a table",
-    function (i, k, v)
-      i[k] = v
-    end,
-    john_doe,
-    'aliases',
-    'hello'
-  )
 end
 
 function test_datatable.test_frozen()
@@ -594,7 +496,6 @@ function test_datatable.test_data_pairs_enumeration()
     name=dt.StringSlot,
     age=dt.IntegerSlot,
     height=dt.NumberSlot,
-    aliases=dt.TableSlot
   }
 
   local data <const> = {
@@ -602,7 +503,6 @@ function test_datatable.test_data_pairs_enumeration()
     name='John Doe',
     age=18,
     height=80.5,
-    aliases={'Johnny'}
   }
 
   local john_doe <const> = Person(data)

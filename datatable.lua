@@ -90,9 +90,13 @@ Default Slots
 local AnySlot <const> = Slot.create(function (value)
   if value == nil then
     return nil, "slot value must not be nil"
-  else
-    return value
   end
+
+  if type(value) == 'table' then
+    return nil, "slot value must not be a table"
+  end
+
+  return value
 end)
 
 local BooleanSlot <const> = Slot.create(function (value)
@@ -136,128 +140,6 @@ local FloatSlot <const> = Slot.create(function (value)
     return nil, "slot value must be a float"
   end
 end)
-
-local TableSlot <const> = Slot.create(function (value)
-  if type(value) == 'table' then
-    return value
-  else
-    return nil, "slot value must be a table"
-  end
-end, function (value)
-  return "{" .. tostring(value) .. "}"
-end)
-
---[[
-Slot Factories
---]]
-
-local function create_array_table_slot(constraints)
-  local min_key_count <const> = constraints['min_keys'] or 0
-  assert(math.type(min_key_count) == 'integer', "min_keys constraint must be an integer")
-
-  local max_key_count <const> = constraints['max_keys'] or nil
-  if max_key_count then
-    assert(math.type(max_key_count) == 'integer', "max_keys constraint must be an integer or nil")
-    if max_key_count < min_key_count then
-      error("min_keys constraint must be less than or equal to max_keys constraint")
-    end
-  end
-
-  local contiguous <const> = constraints['contiguous'] or true
-  assert(type(contiguous) == 'boolean', "contiguous constraint must be a boolean")
-
-  local value_slot <const> = constraints['values'] or AnySlot
-  assert(Slot.is(value_slot), "values constraint must be a Slot instance")
-
-  return Slot.create(function (value)
-    if type(value) ~= 'table' then
-      return nil, "value must be a table"
-    end
-
-    local key_count = 0
-    for entry_key, entry_value in pairs(value) do
-      key_count = key_count + 1
-
-      if math.type(entry_key) ~= 'integer' then
-        return nil, "array table keys must be integers"
-      end
-
-      local _, message = value_slot('validate', entry_value)
-      if message then
-        return nil, "array table value invalid: " .. message
-      end
-    end
-
-    if key_count < min_key_count then
-      return nil, "array must contain at least " .. tostring(min_key_count) .. " keys"
-    end
-
-    if max_key_count and key_count > max_key_count then
-      return nil, "array must contain no more than " .. tostring(max_key_count) .. " keys"
-    end
-
-    if contiguous and key_count ~= #value then
-      return nil, "array must be contiguous"
-    end
-
-    return value
-  end, function (value)
-    local formatted_entries <const> = {}
-
-    if contiguous then
-      for index, entry_value in ipairs(value) do
-        table.insert(formatted_entries, value_slot('format', entry_value))
-      end
-    else
-      for index, entry_value in pairs(value) do
-        local formatted_key <const> = "[" .. tostring(index) .. "]"
-        local formatted_value <const> = value_slot('format', entry_value)
-        table.insert(formatted_entries, formatted_key .. "=" .. formatted_value)
-      end
-    end
-
-    return ("{" .. table.concat(formatted_entries, ",") .. "}")
-  end)
-end
-
-local function create_map_table_slot(constraints)
-  -- XXX: consider supporting min_keys and max_keys like above
-
-  local key_slot <const> = constraints['keys'] or AnySlot
-  assert(Slot.is(key_slot), "keys constraint must be a Slot instance")
-
-  local value_slot <const> = constraints['values'] or AnySlot
-  assert(Slot.is(value_slot), "values contraint must be a Slot instance")
-
-  return Slot.create(function (value)
-    if type(value) ~= 'table' then
-      return nil, "value must be a table"
-    end
-
-    for entry_key, entry_value in pairs(value) do
-      local _, message = key_slot('validate', entry_key)
-      if message then
-        return nil, "map table key: " .. message
-      end
-
-      local _, message = value_slot('validate', entry_value)
-      if message then
-        return nil, "map table value: " .. message
-      end
-    end
-
-    return value
-  end, function (value)
-    local formatted_entries <const> = {}
-    for entry_key, entry_value in pairs(value) do
-      local formatted_key <const> = "[" .. key_slot('format', entry_key) .. "]"
-      local formatted_value <const> = value_slot('format', entry_value)
-      table.insert(formatted_entries, formatted_key .. "=" .. formatted_value)
-    end
-
-    return ("{" .. table.concat(formatted_entries, ",") .. "}")
-  end)
-end
 
 --[[
 Slot Optional Wrapper
@@ -640,11 +522,6 @@ local module = {
   NumberSlot=NumberSlot,
   IntegerSlot=IntegerSlot,
   FloatSlot=FloatSlot,
-  TableSlot=TableSlot,
-
-  -- slot factories
-  create_array_table_slot=create_array_table_slot,
-  create_map_table_slot=create_map_table_slot,
 
   -- slot wrappers
   Optional=Optional,
