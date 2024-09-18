@@ -606,4 +606,5 @@ return {
   test_datatable=test_datatable,
 
   test_arraytable_type=test_arraytable_type,
+  test_arraytable=test_arraytable,
 }
