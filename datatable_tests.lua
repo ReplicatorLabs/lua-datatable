@@ -532,12 +532,78 @@ function test_datatable.test_is_instance()
   lu.assertFalse(CountA:is({}))
 end
 
+-- arraytable type tests
+test_arraytable_type = {}
+
+function test_arraytable_type.test_lifecycle()
+  collectgarbage('collect')
+  local initial_count = countTableKeys(dt.arraytable_type_private)
+
+  local instance = dt.ArrayTable{}
+  lu.assertEquals(countTableKeys(dt.arraytable_type_private), initial_count + 1)
+
+  instance = nil
+  collectgarbage('collect')
+  lu.assertEquals(countTableKeys(dt.arraytable_type_private), initial_count)
+end
+
+function test_arraytable_type.test_frozen()
+  local MutableArrayTable <const> = dt.ArrayTable{}
+  lu.assertFalse(MutableArrayTable.freeze_instances)
+
+  local FrozenArrayTable <const> = dt.ArrayTable{freeze_instances=true}
+  lu.assertTrue(FrozenArrayTable.freeze_instances)
+end
+
+function test_arraytable_type.test_is_instance()
+  local instance <const> = dt.ArrayTable{}
+  lu.assertTrue(dt.ArrayTable.is(instance))
+  lu.assertFalse(dt.ArrayTable.is({}))
+end
+
+function test_arraytable_type.test_slot_wrapper()
+  local Mock <const> = dt.ArrayTable{}
+  local instance <const> = Mock{1, 2, 3}
+
+  local mock_slot <const> = dt.ArrayTableSlot(Mock)
+  lu.assertTrue(dt.Slot.is(mock_slot))
+
+  local value, message = mock_slot('validate', instance)
+  lu.assertEquals(value, instance)
+  lu.assertNil(message)
+
+  local value, message = mock_slot('validate', 'obviously-not-a-slot')
+  lu.assertNil(value)
+  lu.assertStrContains(message, "value must be an instance of arraytable: ArrayTableType: ")
+
+  -- TODO: formatting
+end
+
+-- arraytable instance tests
+test_arraytable = {}
+
+function test_arraytable.test_lifecycle()
+  collectgarbage('collect')
+  local initial_count = countTableKeys(dt.arraytable_instance_private)
+
+  local Mock <const> = dt.ArrayTable{}
+  local instance = Mock{1, 2, 3}
+  lu.assertEquals(countTableKeys(dt.arraytable_instance_private), initial_count + 1)
+
+  instance = nil
+  collectgarbage('collect')
+  lu.assertEquals(countTableKeys(dt.arraytable_instance_private), initial_count)
+end
+
 --[[
 Module Interface
 --]]
 
 return {
   test_slot=test_slot,
+
   test_datatable_type=test_datatable_type,
   test_datatable=test_datatable,
+
+  test_arraytable_type=test_arraytable_type,
 }
