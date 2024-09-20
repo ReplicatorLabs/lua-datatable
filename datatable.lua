@@ -486,6 +486,19 @@ local arraytable_instance_private <const> = setmetatable({}, {__mode='k'})
 local arraytable_instance_internal_metatable <const> = {
   __name = 'ArrayTable',
   __metatable = arraytable_instance_metatable,
+  __len = function (self)
+    local private <const> = assert(
+      arraytable_instance_private[self],
+      "ArrayTable instance not recognized: " .. tostring(self)
+    )
+
+    local arraytable <const> = assert(
+      arraytable_type_private[private.arraytable],
+      "ArrayTable type not recognized: " .. tostring(self)
+    )
+
+    return #private.data
+  end,
   __index = function (self, key)
     local private <const> = assert(
       arraytable_instance_private[self],
