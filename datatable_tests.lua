@@ -595,6 +595,94 @@ function test_arraytable.test_lifecycle()
   lu.assertEquals(countTableKeys(dt.arraytable_instance_private), initial_count)
 end
 
+function test_arraytable.test_custom_slot()
+  local PersonAges <const> = dt.ArrayTable{
+    value_slot=dt.Slot(function (value)
+      if type(value) ~= 'number' or value <= 0 then
+        return nil, "custom_age_slot_error"
+      end
+
+      return value
+    end)
+  }
+
+  local ages <const> = PersonAges{1, 2}
+  lu.assertEquals(#ages, 2)
+  lu.assertEquals(ages[1], 1)
+  lu.assertEquals(ages[2], 2)
+
+  ages[1] = 29
+  lu.assertEquals(ages[1], 29)
+
+  lu.assertErrorMsgContains(
+    "custom_age_slot_error",
+    function (i, k, v)
+      i[k] = v
+    end,
+    ages,
+    2,
+    -20
+  )
+end
+
+function test_arraytable.test_frozen()
+  -- arraytable with isntances that are always frozen
+  local FrozenIntegers <const> = dt.ArrayTable{value_slot=dt.IntegerSlot, freeze_instances=true}
+  lu.assertTrue(FrozenIntegers.freeze_instances)
+
+  lu.assertErrorMsgContains(
+    "ArrayTable type freeze_instances requires instances to also be frozen",
+    FrozenIntegers,
+    {10, 20, 30},
+    {frozen=false}
+  )
+
+  local frozen_numbers <const> = FrozenIntegers{2, 42}
+
+  lu.assertErrorMsgContains(
+    "ArrayTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    frozen_numbers,
+    3,
+    100
+  )
+
+  -- arraytable with instances frozen on creation
+  local Integers <const> = dt.ArrayTable{value_slot=dt.IntegerSlot}
+  lu.assertFalse(Integers.freeze_instances)
+
+  local more_numbers <const> = Integers({2, 42}, {frozen=true})
+
+  lu.assertErrorMsgContains(
+    "ArrayTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    more_numbers,
+    3,
+    100
+  )
+
+  -- arraytable with instances frozen on demand
+  local scratch_numbers <const> = Integers{1, 1, 2}
+  lu.assertFalse(Integers:is_frozen(scratch_numbers))
+
+  Integers:freeze(scratch_numbers)
+  lu.assertTrue(Integers:is_frozen(scratch_numbers))
+
+  lu.assertErrorMsgContains(
+    "ArrayTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    scratch_numbers,
+    3,
+    100
+  )
+end
+
 --[[
 Module Interface
 --]]

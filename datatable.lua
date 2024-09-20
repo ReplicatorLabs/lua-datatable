@@ -490,6 +490,7 @@ local arraytable_instance_internal_metatable <const> = {
   end,
   __newindex = function (self, key, value)
     local private <const>, arraytable_private <const> = arraytable_instance_check(self)
+    assert(not private.frozen, "ArrayTable instance is frozen")
 
     if math.type(key) ~= 'integer' then
       error("ArrayTable index must be an integer: " .. tostring(key))
