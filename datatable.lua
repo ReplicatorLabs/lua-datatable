@@ -161,6 +161,8 @@ end
 
 --[[
 DataTable
+
+A table with defined string keys pointing to corresponding slot enforced values.
 --]]
 
 local datatable_type_metatable <const> = {}
@@ -470,6 +472,8 @@ end
 
 --[[
 ArrayTable
+
+A table with contiguous integer keys and a slot enforced values.
 --]]
 
 local arraytable_type_metatable <const> = {}
@@ -494,7 +498,7 @@ local arraytable_instance_internal_metatable <const> = {
     )
 
     if math.type(key) ~= 'integer' then
-      error("ArrayTable index must be an integer")
+      error("ArrayTable index must be an integer: " .. tostring(key))
     end
 
     return private.data[key]
@@ -511,7 +515,7 @@ local arraytable_instance_internal_metatable <const> = {
     )
 
     if math.type(key) ~= 'integer' then
-      error("ArrayTable index must be an integer")
+      error("ArrayTable index must be an integer: " .. tostring(key))
     end
 
     local value, message = arraytable.value_slot('validate', value)
@@ -525,19 +529,18 @@ local arraytable_instance_internal_metatable <const> = {
     local previous_value <const> = private.data[key]
     private.data[key] = value
 
-    -- XXX: does this work?
-    if arraytable.contiguous then
-      local key_count = 0
-      for _, _ in ipairs(private.data) do
-        key_count = key_count + 1
-      end
-
-      if key_count ~= #private.data then
-        private.data[key] = previous_value
-        error("ArrayTable instance data must be contiguous")
-      end
+    -- validate array indices are contiguous
+    local key_count = 0
+    for _, _ in ipairs(private.data) do
+      key_count = key_count + 1
     end
 
+    if key_count ~= #private.data then
+      private.data[key] = previous_value
+      error("ArrayTable indices must be contiguous")
+    end
+
+    -- validate new array data
     local message = arraytable.validator(private.data)
     if message ~= nil then
       private.data[key] = previous_value
@@ -639,9 +642,6 @@ local arraytable_type_internal_metatable <const> = {
     -- value slot
     if key == 'value_slot' then
       return private.value_slot
-    -- contiguous flag
-    elseif key == 'contiguous' then
-      return private.contiguous
     -- arraytable frozen flag
     elseif key == 'freeze_instances' then
       return private.freeze_instances
@@ -667,14 +667,14 @@ local arraytable_type_internal_metatable <const> = {
     for index, value in ipairs(value_data) do
       local value, message = private.value_slot('validate', value)
       if message then
-        error("ArrayTable index " .. index .. ": " .. message)
+        error("ArrayTable index " .. tostring(index) .. ": " .. message)
       end
 
       key_count = key_count + 1
       initial_data[index] = value
     end
 
-    if private.contiguous and key_count ~= #value_data then
+    if key_count ~= #value_data then
       error("ArrayTable indices must be contiguous")
     end
 
@@ -721,11 +721,6 @@ local ArrayTable <const> = setmetatable({
       error("ArrayTable value_slot must be a Slot instance")
     end
 
-    local contiguous <const> = (config_data['contiguous'] or false)
-    if type(contiguous) ~= 'boolean' then
-      error("ArrayTable contiguous flag must be a boolean")
-    end
-
     local freeze_instances <const> = (config_data['freeze_instances'] or false)
     if type(freeze_instances) ~= 'boolean' then
       error("ArrayTable freeze_instances flag must be a boolean")
@@ -739,7 +734,6 @@ local ArrayTable <const> = setmetatable({
     local instance <const> = {}
     arraytable_type_private[instance] = {
       value_slot=value_slot,
-      contiguous=contiguous,
       freeze_instances=freeze_instances,
       validator=validator
     }
