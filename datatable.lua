@@ -272,44 +272,6 @@ local datatable_type_is <const> = function (self, value)
   return (private.datatable == self)
 end
 
-local datatable_type_freeze <const> = function (self, instance)
-  local private <const> = assert(
-    datatable_instance_private[instance],
-    "DataTable instance not recognized: " .. tostring(instance)
-  )
-
-  assert(private.datatable == self, "DataTable type method used with incompatible type")
-  local datatable <const> = assert(
-    datatable_type_private[private.datatable],
-    "DataTable type not recognized: " .. tostring(private.datatable)
-  )
-
-  -- validate the instance first
-  local message <const> = datatable.validator(private.data)
-  if message ~= nil then
-    assert(type(message) == 'string', "DataTable validator function must return a string message")
-    error("DataTable instance data is not valid: " .. message)
-  end
-
-  -- use breadth-first search starting from this datatable instance to find
-  -- all the nested datatables and freeze them
-  local instances <const> = {private}
-  while #instances > 0 do
-    local instance_private <const> = table.remove(instances, 1)
-    instance_private.frozen = true
-
-    for key, value in pairs(instance_private.data) do
-      if getmetatable(value) == datatable_instance_metatable then
-        local instance_private <const> = datatable_instance_private[value]
-        table.insert(instances, instance_private)
-      end
-    end
-  end
-
-  -- return the datatable instance to make chaining and returning it easy
-  return instance
-end
-
 local datatable_type_is_frozen <const> = function (self, instance)
   local private <const> = assert(
     datatable_instance_private[instance],
@@ -343,7 +305,6 @@ end
 
 local datatable_type_class_methods <const> = {
   ['is']=datatable_type_is,
-  ['freeze']=datatable_type_freeze,
   ['is_frozen']=datatable_type_is_frozen,
   ['validate']=datatable_type_validate,
 }
@@ -629,33 +590,6 @@ local arraytable_type_is <const> = function (self, value)
   return (private.arraytable == self)
 end
 
-local arraytable_type_freeze <const> = function (self, instance)
-  local private <const> = assert(
-    arraytable_instance_private[instance],
-    "ArrayTable instance not recognized: " .. tostring(instance)
-  )
-
-  assert(private.arraytable == self, "ArrayTable type method used with incompatible type")
-  local arraytable <const> = assert(
-    arraytable_type_private[private.arraytable],
-    "ArrayTable type not recognized: " .. tostring(private.arraytable)
-  )
-
-  -- validate the instance first
-  local message <const> = arraytable.validator(private.data)
-  if message ~= nil then
-    assert(type(message) == 'string', "ArrayTable validator function must return a string message")
-    error("ArrayTable instance data is not valid: " .. message)
-  end
-
-  -- use breadth-first search starting from this datatable instance to find
-  -- all the nested datatables and freeze them
-  -- TODO
-
-  -- return the datatable instance to make chaining and returning it easy
-  return instance
-end
-
 local arraytable_type_is_frozen <const> = function (self, instance)
   local private <const> = assert(
     arraytable_instance_private[instance],
@@ -689,7 +623,6 @@ end
 
 local arraytable_type_class_methods <const> = {
   ['is']=arraytable_type_is,
-  ['freeze']=arraytable_type_freeze,
   ['is_frozen']=arraytable_type_is_frozen,
   ['validate']=arraytable_type_validate,
 }
@@ -841,6 +774,144 @@ local function ArrayTableSlot(table_type)
 end
 
 --[[
+Generic Internal Helpers
+--]]
+
+local generic_table_is_instance <const> = function (value)
+  local mt <const> = getmetatable(value)
+  return (
+    mt == datatable_instance_metatable or
+    mt == arraytable_instance_metatable
+  )
+end
+
+local generic_table_is_type <const> = function (value)
+  local mt <const> = getmetatable(value)
+  return (
+    mt == datatable_type_metatable or
+    mt == arraytable_type_metatable
+  )
+end
+
+--[[
+Table Freezing
+--]]
+
+local generic_table_type_freeze <const> = function (root_instance)
+  -- extract all nested table instances from the provided instance
+  local function _shallow_copy_nested_instances(instance)
+    local values <const> = {}
+
+    if getmetatable(instance) == datatable_instance_metatable then
+      local private <const> = assert(datatable_instance_private[instance])
+
+      for _, value in pairs(private.data) do
+        if generic_table_is_instance(value) then
+          table.insert(values, value)
+        end
+      end
+    elseif getmetatable(instance) == arraytable_instance_metatable then
+      local private <const> = assert(arraytable_instance_private[instance])
+
+      for _, value in ipairs(private.data) do
+        if generic_table_is_instance(value) then
+          table.insert(values, value)
+        end
+      end
+    else
+      error("invalid table instance type")
+    end
+
+    return values
+  end
+
+  -- freeze the provided instance
+  local function _freeze_instance(instance)
+    local mt <const> = getmetatable(instance)
+    if mt == datatable_instance_metatable then
+      local private <const> = assert(datatable_instance_private[instance])
+      local datatable <const> = assert(datatable_type_private[private.datatable])
+
+      local message <const> = datatable.validator(private.data)
+      if message ~= nil then
+        -- TODO: improve the error to specify which nested instance failed validation
+        assert(type(message) == 'string', "DataTable validator function must return a string message")
+        error("DataTable instance data is not valid: " .. message)
+      end
+
+      private.frozen = true
+    elseif mt == arraytable_instance_metatable then
+      local private <const> = assert(arraytable_instance_private[instance])
+      local arraytable <const> = assert(arraytable_type_private[private.arraytable])
+
+      local message <const> = arraytable.validator(private.data)
+      if message ~= nil then
+        -- TODO: improve the error to specify which nested instance failed validation
+        assert(type(message) == 'string', "ArrayTable validator function must return a string message")
+        error("ArrayTable instance data is not valid: " .. message)
+      end
+
+      private.frozen = true
+    else
+      error("invalid table instance type")
+    end
+  end
+
+  -- use breadth-first search from the root instance to find all nested tables
+  local instances <const> = {root_instance}
+  while #instances > 0 do
+    local instance <const> = table.remove(instances, 1)
+    _freeze_instance(instance)
+
+    local nested_instances <const> = _shallow_copy_nested_instances(instance)
+    for _, nested_instance in ipairs(nested_instances) do
+      table.insert(instances, nested_instance)
+    end
+  end
+end
+
+local datatable_type_freeze <const> = function (self, instance)
+  local private <const> = assert(
+    datatable_instance_private[instance],
+    "DataTable instance not recognized: " .. tostring(instance)
+  )
+
+  assert(private.datatable == self, "DataTable type method used with incompatible type")
+  local datatable <const> = assert(
+    datatable_type_private[private.datatable],
+    "DataTable type not recognized: " .. tostring(private.datatable)
+  )
+
+  -- use shared generic implementation
+  generic_table_type_freeze(instance)
+
+  -- return the datatable instance to make chaining and returning it easy
+  return instance
+end
+
+local arraytable_type_freeze <const> = function (self, instance)
+  local private <const> = assert(
+    arraytable_instance_private[instance],
+    "ArrayTable instance not recognized: " .. tostring(instance)
+  )
+
+  assert(private.arraytable == self, "ArrayTable type method used with incompatible type")
+  local arraytable <const> = assert(
+    arraytable_type_private[private.arraytable],
+    "ArrayTable type not recognized: " .. tostring(private.arraytable)
+  )
+
+  -- use shared generic implementation
+  generic_table_type_freeze(instance)
+
+  -- return the datatable instance to make chaining and returning it easy
+  return instance
+end
+
+datatable_type_class_methods['freeze'] = datatable_type_freeze
+arraytable_type_class_methods['freeze'] = arraytable_type_freeze
+
+--[[
 Module Interface
 --]]
 
@@ -887,6 +958,9 @@ if os.getenv('LUA_DATATABLE_LEAK_INTERNALS') == 'TRUE' then
   module['arraytable_type_private'] = arraytable_type_private
   module['arraytable_instance_metatable'] = arraytable_instance_metatable
   module['arraytable_instance_private'] = arraytable_instance_private
+
+  module['generic_table_is_instance'] = generic_table_is_instance
+  module['generic_table_is_type'] = generic_table_is_type
 end
 
 return module
