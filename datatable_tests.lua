@@ -503,20 +503,20 @@ function test_datatable.test_data_pairs_enumeration()
 end
 
 function test_datatable.test_is_instance()
-  local CountA <const> = dt.DataTable{count=dt.IntegerSlot}
-  local count_a <const> = CountA{count=10}
+  local MockA <const> = dt.DataTable{count=dt.IntegerSlot}
+  local instance_a <const> = MockA{count=0}
 
-  local CountB <const> = dt.DataTable{count=dt.IntegerSlot}
-  local count_b <const> = CountB{count=10}
+  local MockB <const> = dt.DataTable{count=dt.IntegerSlot}
+  local instance_b <const> = MockB{count=0}
 
-  lu.assertTrue(CountA:is(count_a))
-  lu.assertTrue(CountB:is(count_b))
+  lu.assertTrue(MockA:is(instance_a))
+  lu.assertTrue(MockB:is(instance_b))
 
-  lu.assertFalse(CountA:is(count_b))
-  lu.assertFalse(CountB:is(count_a))
+  lu.assertFalse(MockA:is(instance_b))
+  lu.assertFalse(MockB:is(instance_a))
 
-  lu.assertFalse(CountA:is(CountA))
-  lu.assertFalse(CountA:is({}))
+  lu.assertFalse(MockA:is(MockA))
+  lu.assertFalse(MockA:is({}))
 end
 
 --[[
@@ -823,20 +823,20 @@ function test_arraytable.test_enumeration()
 end
 
 function test_arraytable.test_is_instance()
-  local NumbersA <const> = dt.ArrayTable{value_slot=dt.IntegerSlot}
-  local numbers_a <const> = NumbersA{}
+  local MockA <const> = dt.ArrayTable{}
+  local instance_a <const> = MockA{}
 
-  local NumbersB <const> = dt.ArrayTable{value_slot=dt.IntegerSlot}
-  local numbers_b <const> = NumbersB{}
+  local MockB <const> = dt.ArrayTable{}
+  local instance_b <const> = MockB{}
 
-  lu.assertTrue(NumbersA:is(numbers_a))
-  lu.assertTrue(NumbersB:is(numbers_b))
+  lu.assertTrue(MockA:is(instance_a))
+  lu.assertTrue(MockB:is(instance_b))
 
-  lu.assertFalse(NumbersA:is(numbers_b))
-  lu.assertFalse(NumbersB:is(numbers_a))
+  lu.assertFalse(MockA:is(instance_b))
+  lu.assertFalse(MockB:is(instance_a))
 
-  lu.assertFalse(NumbersA:is(NumbersA))
-  lu.assertFalse(NumbersA:is({}))
+  lu.assertFalse(MockA:is(MockA))
+  lu.assertFalse(MockA:is({}))
 end
 
 --[[
@@ -959,6 +959,23 @@ function test_maptable.test_data_pairs_enumeration()
   end
 
   lu.assertEquals(countTableKeys(data), 0)
+end
+
+function test_maptable.test_is_instance()
+  local MockA <const> = dt.MapTable{}
+  local instance_a <const> = MockA{}
+
+  local MockB <const> = dt.MapTable{}
+  local instance_b <const> = MockB{}
+
+  lu.assertTrue(MockA:is(instance_a))
+  lu.assertTrue(MockB:is(instance_b))
+
+  lu.assertFalse(MockA:is(instance_b))
+  lu.assertFalse(MockB:is(instance_a))
+
+  lu.assertFalse(MockA:is(MockA))
+  lu.assertFalse(MockA:is({}))
 end
 
 --[[
