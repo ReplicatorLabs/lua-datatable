@@ -748,38 +748,39 @@ local generic_table_is_type <const> = function (value)
   )
 end
 
+-- return a shallow copy of table instances contained by the provided instance
+-- note: this only checks one level deep in order to avoid searching
+local generic_table_nested_instances = function (instance)
+  local values <const> = {}
+
+  if getmetatable(instance) == datatable_instance_metatable then
+    local private <const> = assert(datatable_instance_private[instance])
+
+    for _, value in pairs(private.data) do
+      if generic_table_is_instance(value) then
+        table.insert(values, value)
+      end
+    end
+  elseif getmetatable(instance) == arraytable_instance_metatable then
+    local private <const> = assert(arraytable_instance_private[instance])
+
+    for _, value in ipairs(private.data) do
+      if generic_table_is_instance(value) then
+        table.insert(values, value)
+      end
+    end
+  else
+    error("invalid table instance type")
+  end
+
+  return values
+end
+
 --[[
 Table Freezing
 --]]
 
 local generic_table_type_freeze <const> = function (root_instance)
-  -- extract all nested table instances from the provided instance
-  local function _shallow_copy_nested_instances(instance)
-    local values <const> = {}
-
-    if getmetatable(instance) == datatable_instance_metatable then
-      local private <const> = assert(datatable_instance_private[instance])
-
-      for _, value in pairs(private.data) do
-        if generic_table_is_instance(value) then
-          table.insert(values, value)
-        end
-      end
-    elseif getmetatable(instance) == arraytable_instance_metatable then
-      local private <const> = assert(arraytable_instance_private[instance])
-
-      for _, value in ipairs(private.data) do
-        if generic_table_is_instance(value) then
-          table.insert(values, value)
-        end
-      end
-    else
-      error("invalid table instance type")
-    end
-
-    return values
-  end
-
   -- freeze the provided instance
   local function _freeze_instance(instance)
     local mt <const> = getmetatable(instance)
@@ -818,7 +819,7 @@ local generic_table_type_freeze <const> = function (root_instance)
     local instance <const> = table.remove(instances, 1)
     _freeze_instance(instance)
 
-    local nested_instances <const> = _shallow_copy_nested_instances(instance)
+    local nested_instances <const> = generic_table_nested_instances(instance)
     for _, nested_instance in ipairs(nested_instances) do
       table.insert(instances, nested_instance)
     end
@@ -916,6 +917,7 @@ if os.getenv('LUA_DATATABLE_LEAK_INTERNALS') == 'TRUE' then
 
   module['generic_table_is_instance'] = generic_table_is_instance
   module['generic_table_is_type'] = generic_table_is_type
+  module['generic_table_nested_instances'] = generic_table_nested_instances
 end
 
 return module
