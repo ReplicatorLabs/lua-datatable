@@ -625,7 +625,56 @@ function test_arraytable.test_custom_slot()
   )
 end
 
--- TODO: arraytable indices must be contiguous
+function test_arraytable.test_indices()
+  local Integers <const> = dt.ArrayTable{value_slot=dt.IntegerSlot}
+
+  -- validate indices on creation
+  lu.assertErrorMsgContains(
+    "ArrayTable indices must be contiguous",
+    Integers,
+    {[1]=10, [3]=20}
+  )
+
+  lu.assertErrorMsgContains(
+    "ArrayTable indices must be positive",
+    Integers,
+    {[-5]=10, [3]=20}
+  )
+
+  -- validate indices on mutation
+  local instance <const> = Integers{}
+  table.insert(instance, 10)
+  table.insert(instance, 20)
+
+  lu.assertEquals(#instance, 2)
+  lu.assertEquals(instance[1], 10)
+  lu.assertEquals(instance[2], 20)
+
+  table.remove(instance, 1)
+  lu.assertEquals(#instance, 1)
+  lu.assertEquals(instance[1], 20)
+
+  lu.assertErrorMsgContains(
+    "ArrayTable indices must be contiguous",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance,
+    4,
+    100
+  )
+
+  lu.assertErrorMsgContains(
+    "ArrayTable index must be positive: ",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance,
+    -5,
+    100
+  )
+end
+
 -- TODO: arraytable table.insert(), table.remove(), etc?
 
 function test_arraytable.test_frozen()

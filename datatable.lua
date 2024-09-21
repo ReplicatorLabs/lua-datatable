@@ -482,9 +482,15 @@ local arraytable_instance_internal_metatable <const> = {
       error("ArrayTable index must be an integer: " .. tostring(key))
     end
 
-    local value, message = arraytable_private.value_slot('validate', value)
-    if message then
-      error("ArrayTable index " .. tostring(key) .. ": " .. message)
+    if key <= 0 then
+      error("ArrayTable index must be positive: " .. tostring(key))
+    end
+
+    if value ~= nil then
+      local value, message = arraytable_private.value_slot('validate', value)
+      if message then
+        error("ArrayTable index " .. tostring(key) .. ": " .. message)
+      end
     end
 
     -- TODO: use a flag to toggle whether we should always run the arraytable
@@ -495,7 +501,7 @@ local arraytable_instance_internal_metatable <const> = {
 
     -- validate array indices are contiguous
     local key_count = 0
-    for _, _ in ipairs(private.data) do
+    for _, _ in pairs(private.data) do
       key_count = key_count + 1
     end
 
@@ -591,14 +597,22 @@ local arraytable_type_internal_metatable <const> = {
 
     local key_count = 0
     local initial_data <const> = {}
-    for index, value in ipairs(value_data) do
+    for key, value in pairs(value_data) do
+      if math.type(key) ~= 'integer' then
+        error("ArrayTable indices must be integers")
+      end
+
+      if key <= 0 then
+        error("ArrayTable indices must be positive")
+      end
+
       local value, message = private.value_slot('validate', value)
       if message then
         error("ArrayTable index " .. tostring(index) .. ": " .. message)
       end
 
       key_count = key_count + 1
-      initial_data[index] = value
+      initial_data[key] = value
     end
 
     if key_count ~= #value_data then
