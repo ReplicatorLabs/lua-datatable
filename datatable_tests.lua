@@ -994,7 +994,37 @@ function test_maptable.test_freezing_nested()
   )
 end
 
--- TODO: test_validator
+function test_maptable.test_validator()
+  -- always validate on maptable instance mutation
+  -- TODO: use flag to toggle this behavior
+  local Bookmarks <const> = dt.MapTable{
+    key_slot=dt.StringSlot,
+    value_slot=dt.StringSlot,
+    validator=(function (data)
+      if countTableKeys(data) > 2 then
+        return "Bookmarks table size too large"
+      end
+    end)
+  }
+
+  local instance <const> = Bookmarks{
+    ['foo']='example.com',
+    ['bar']='example.com',
+  }
+
+  lu.assertErrorMsgContains(
+    "Bookmarks table size too large",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance,
+    'baz',
+    'example.com'
+  )
+
+  -- TODO: validate maptable instance on demand
+  -- TODO: validate maptable instance on freeze
+end
 
 function test_maptable.test_data_pairs_enumeration()
   local NamedNumbers <const> = dt.MapTable{
