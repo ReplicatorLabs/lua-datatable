@@ -853,6 +853,8 @@ function test_slot_wrapper.test_arraytable_slot()
   -- TODO: formatting
 end
 
+-- TODO: test validation for table slot wrapper
+
 --[[
 Module Interface
 --]]
