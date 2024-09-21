@@ -939,6 +939,10 @@ function test_maptable.test_custom_slots()
   )
 end
 
+-- TODO: test_frozen
+-- TODO: test_freezing_nested
+-- TODO: test_validator
+
 function test_maptable.test_data_pairs_enumeration()
   local NamedNumbers <const> = dt.MapTable{
     key_slot=dt.StringSlot,
