@@ -413,24 +413,6 @@ local DataTable <const> = setmetatable({
 })
 
 --[[
-DataTable Slot Wrapper
---]]
-
-local function DataTableSlot(table_type)
-  assert(DataTable.is(table_type), "table_type must be a DataTable type instance")
-
-  return Slot.create(function (value)
-    if table_type:is(value) then
-      return value
-    end
-
-    return nil, "value must be an instance of datatable: " .. tostring(table_type)
-  end, function (value)
-    return tostring(table_type)
-  end)
-end
-
---[[
 ArrayTable
 
 A table with contiguous integer keys and a slot enforced values.
@@ -697,24 +679,6 @@ local ArrayTable <const> = setmetatable({
 })
 
 --[[
-ArrayTable Slot Wrapper
---]]
-
-local function ArrayTableSlot(table_type)
-  assert(ArrayTable.is(table_type), "table_type must be a ArrayTable type instance")
-
-  return Slot.create(function (value)
-    if table_type:is(value) then
-      return value
-    end
-
-    return nil, "value must be an instance of arraytable: " .. tostring(table_type)
-  end, function (value)
-    return tostring(table_type)
-  end)
-end
-
---[[
 Generic Internal Helpers
 --]]
 
@@ -760,6 +724,32 @@ local generic_table_nested_instances = function (instance)
   end
 
   return values
+end
+
+--[[
+Table Slot Wrapper
+--]]
+
+local function TableSlot(table_type, validate)
+  assert(generic_table_is_type(table_type), "table_type must be an DataTable or ArrayTable type")
+  assert(type(validate) == 'boolean' or validate == nil, "validate must be a boolean or nil")
+
+  return Slot.create(function (value)
+    if not table_type:is(value) then
+      return nil, "value must be an instance of table type: " .. tostring(table_type)
+    end
+
+    if validate then
+      local valid <const>, message <const> = table_type:validate(value)
+      if not valid then
+        return nil, message
+      end
+    end
+
+    return value
+  end, function (value)
+    return tostring(table_type)
+  end)
 end
 
 --[[
@@ -928,11 +918,12 @@ local module = {
 
   -- datatable
   DataTable=DataTable,
-  DataTableSlot=DataTableSlot,
 
   -- arraytable
   ArrayTable=ArrayTable,
-  ArrayTableSlot=ArrayTableSlot,
+
+  -- table slot wrappers
+  TableSlot=TableSlot,
 }
 
 if os.getenv('LUA_DATATABLE_LEAK_INTERNALS') == 'TRUE' then

@@ -148,24 +148,6 @@ function test_datatable_type.test_is_instance()
   lu.assertFalse(dt.DataTable.is({}))
 end
 
-function test_datatable_type.test_slot_wrapper()
-  local Mock <const> = dt.DataTable{name=dt.StringSlot}
-  local instance <const> = Mock{name='alex'}
-
-  local mock_slot <const> = dt.DataTableSlot(Mock)
-  lu.assertTrue(dt.Slot.is(mock_slot))
-
-  local value, message = mock_slot('validate', instance)
-  lu.assertEquals(value, instance)
-  lu.assertNil(message)
-
-  local value, message = mock_slot('validate', 'obviously-not-a-slot')
-  lu.assertNil(value)
-  lu.assertStrContains(message, "value must be an instance of datatable: DataTableType: ")
-
-  -- TODO: formatting
-end
-
 -- datatable instance tests
 test_datatable = {}
 
@@ -367,8 +349,8 @@ end
 function test_datatable.test_freezing_nested()
   local Point <const> = dt.DataTable{x=dt.IntegerSlot, y=dt.IntegerSlot}
   local Line <const> = dt.DataTable{
-    a=dt.DataTableSlot(Point),
-    b=dt.DataTableSlot(Point)
+    a=dt.TableSlot(Point),
+    b=dt.TableSlot(Point)
   }
 
   local instance <const> = Line{
@@ -451,8 +433,8 @@ function test_datatable.test_validator()
   -- XXX: not necessary if we always validate on mutation
   local Point <const> = dt.DataTable{x=dt.IntegerSlot, y=dt.IntegerSlot}
   local Vector <const> = dt.DataTable({
-    from=dt.DataTableSlot(Point),
-    to=dt.DataTableSlot(Point)
+    from=dt.TableSlot(Point),
+    to=dt.TableSlot(Point)
   }, {
     validator=(function (data)
       local from_normal = math.sqrt((data.from.x ^ 2) + (data.from.y ^ 2))
@@ -559,24 +541,6 @@ function test_arraytable_type.test_is_instance()
   local instance <const> = dt.ArrayTable{}
   lu.assertTrue(dt.ArrayTable.is(instance))
   lu.assertFalse(dt.ArrayTable.is({}))
-end
-
-function test_arraytable_type.test_slot_wrapper()
-  local Mock <const> = dt.ArrayTable{}
-  local instance <const> = Mock{1, 2, 3}
-
-  local mock_slot <const> = dt.ArrayTableSlot(Mock)
-  lu.assertTrue(dt.Slot.is(mock_slot))
-
-  local value, message = mock_slot('validate', instance)
-  lu.assertEquals(value, instance)
-  lu.assertNil(message)
-
-  local value, message = mock_slot('validate', 'obviously-not-a-slot')
-  lu.assertNil(value)
-  lu.assertStrContains(message, "value must be an instance of arraytable: ArrayTableType: ")
-
-  -- TODO: formatting
 end
 
 -- arraytable instance tests
@@ -735,7 +699,7 @@ end
 
 function test_arraytable.test_freezing_nested()
   local Integers <const> = dt.ArrayTable{value_slot=dt.IntegerSlot}
-  local Points <const> = dt.ArrayTable{value_slot=dt.ArrayTableSlot(Integers)}
+  local Points <const> = dt.ArrayTable{value_slot=dt.TableSlot(Integers)}
 
   local instance <const> = Points{
     Integers{1, 2, 3},
@@ -850,6 +814,45 @@ function test_arraytable.test_is_instance()
   lu.assertFalse(NumbersA:is({}))
 end
 
+-- slot wrapper tests
+test_slot_wrapper = {}
+
+function test_slot_wrapper.test_datatable_slot()
+  local Mock <const> = dt.DataTable{name=dt.StringSlot}
+  local instance <const> = Mock{name='alex'}
+
+  local mock_slot <const> = dt.TableSlot(Mock)
+  lu.assertTrue(dt.Slot.is(mock_slot))
+
+  local value, message = mock_slot('validate', instance)
+  lu.assertEquals(value, instance)
+  lu.assertNil(message)
+
+  local value, message = mock_slot('validate', 'obviously-not-a-slot')
+  lu.assertNil(value)
+  lu.assertStrContains(message, "value must be an instance of table type: " .. tostring(Mock))
+
+  -- TODO: formatting
+end
+
+function test_slot_wrapper.test_arraytable_slot()
+  local Mock <const> = dt.ArrayTable{}
+  local instance <const> = Mock{1, 2, 3}
+
+  local mock_slot <const> = dt.TableSlot(Mock)
+  lu.assertTrue(dt.Slot.is(mock_slot))
+
+  local value, message = mock_slot('validate', instance)
+  lu.assertEquals(value, instance)
+  lu.assertNil(message)
+
+  local value, message = mock_slot('validate', 'obviously-not-a-slot')
+  lu.assertNil(value)
+  lu.assertStrContains(message, "value must be an instance of table type: " .. tostring(Mock))
+
+  -- TODO: formatting
+end
+
 --[[
 Module Interface
 --]]
@@ -862,4 +865,6 @@ return {
 
   test_arraytable_type=test_arraytable_type,
   test_arraytable=test_arraytable,
+
+  test_slot_wrapper=test_slot_wrapper,
 }
