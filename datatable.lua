@@ -995,8 +995,7 @@ local generic_table_type_validate <const> = function (root_instance, recurse)
   local function _validate_instance(instance)
     local mt <const> = getmetatable(instance)
     if mt == datatable_instance_metatable then
-      local instance_private <const> = assert(datatable_instance_private[instance])
-      local datatable_private <const> = assert(datatable_type_private[instance_private.datatable])
+      local instance_private <const>, datatable_private <const> = datatable_instance_check(instance)
 
       local message <const> = datatable_private.validator(instance_private.data)
       if message ~= nil then
@@ -1005,8 +1004,7 @@ local generic_table_type_validate <const> = function (root_instance, recurse)
         return false, message
       end
     elseif mt == arraytable_instance_metatable then
-      local instance_private <const> = assert(arraytable_instance_private[instance])
-      local arraytable_private <const> = assert(arraytable_type_private[instance_private.arraytable])
+      local instance_private <const>, arraytable_private <const> = arraytable_instance_check(instance)
 
       local message <const> = arraytable_private.validator(instance_private.data)
       if message ~= nil then
@@ -1015,8 +1013,7 @@ local generic_table_type_validate <const> = function (root_instance, recurse)
         return false, message
       end
     elseif mt == maptable_instance_metatable then
-      local instance_private <const> = assert(maptable_instance_private[instance])
-      local maptable_private <const> = assert(maptable_type_private[instance_private.maptable])
+      local instance_private <const>, maptable_private <const> = maptable_instance_check(instance)
 
       local message <const> = maptable_private.validator(instance_private.data)
       if message ~= nil then
