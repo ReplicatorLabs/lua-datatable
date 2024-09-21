@@ -90,9 +90,13 @@ Default Slots
 local AnySlot <const> = Slot.create(function (value)
   if value == nil then
     return nil, "slot value must not be nil"
-  else
-    return value
   end
+
+  if type(value) == 'table' then
+    return nil, "slot value must not be a table"
+  end
+
+  return value
 end)
 
 local BooleanSlot <const> = Slot.create(function (value)
@@ -137,128 +141,6 @@ local FloatSlot <const> = Slot.create(function (value)
   end
 end)
 
-local TableSlot <const> = Slot.create(function (value)
-  if type(value) == 'table' then
-    return value
-  else
-    return nil, "slot value must be a table"
-  end
-end, function (value)
-  return "{" .. tostring(value) .. "}"
-end)
-
---[[
-Slot Factories
---]]
-
-local function create_array_table_slot(constraints)
-  local min_key_count <const> = constraints['min_keys'] or 0
-  assert(math.type(min_key_count) == 'integer', "min_keys constraint must be an integer")
-
-  local max_key_count <const> = constraints['max_keys'] or nil
-  if max_key_count then
-    assert(math.type(max_key_count) == 'integer', "max_keys constraint must be an integer or nil")
-    if max_key_count < min_key_count then
-      error("min_keys constraint must be less than or equal to max_keys constraint")
-    end
-  end
-
-  local contiguous <const> = constraints['contiguous'] or true
-  assert(type(contiguous) == 'boolean', "contiguous constraint must be a boolean")
-
-  local value_slot <const> = constraints['values'] or AnySlot
-  assert(Slot.is(value_slot), "values constraint must be a Slot instance")
-
-  return Slot.create(function (value)
-    if type(value) ~= 'table' then
-      return nil, "value must be a table"
-    end
-
-    local key_count = 0
-    for entry_key, entry_value in pairs(value) do
-      key_count = key_count + 1
-
-      if math.type(entry_key) ~= 'integer' then
-        return nil, "array table keys must be integers"
-      end
-
-      local _, message = value_slot('validate', entry_value)
-      if message then
-        return nil, "array table value invalid: " .. message
-      end
-    end
-
-    if key_count < min_key_count then
-      return nil, "array must contain at least " .. tostring(min_key_count) .. " keys"
-    end
-
-    if max_key_count and key_count > max_key_count then
-      return nil, "array must contain no more than " .. tostring(max_key_count) .. " keys"
-    end
-
-    if contiguous and key_count ~= #value then
-      return nil, "array must be contiguous"
-    end
-
-    return value
-  end, function (value)
-    local formatted_entries <const> = {}
-
-    if contiguous then
-      for index, entry_value in ipairs(value) do
-        table.insert(formatted_entries, value_slot('format', entry_value))
-      end
-    else
-      for index, entry_value in pairs(value) do
-        local formatted_key <const> = "[" .. tostring(index) .. "]"
-        local formatted_value <const> = value_slot('format', entry_value)
-        table.insert(formatted_entries, formatted_key .. "=" .. formatted_value)
-      end
-    end
-
-    return ("{" .. table.concat(formatted_entries, ",") .. "}")
-  end)
-end
-
-local function create_map_table_slot(constraints)
-  -- XXX: consider supporting min_keys and max_keys like above
-
-  local key_slot <const> = constraints['keys'] or AnySlot
-  assert(Slot.is(key_slot), "keys constraint must be a Slot instance")
-
-  local value_slot <const> = constraints['values'] or AnySlot
-  assert(Slot.is(value_slot), "values contraint must be a Slot instance")
-
-  return Slot.create(function (value)
-    if type(value) ~= 'table' then
-      return nil, "value must be a table"
-    end
-
-    for entry_key, entry_value in pairs(value) do
-      local _, message = key_slot('validate', entry_key)
-      if message then
-        return nil, "map table key: " .. message
-      end
-
-      local _, message = value_slot('validate', entry_value)
-      if message then
-        return nil, "map table value: " .. message
-      end
-    end
-
-    return value
-  end, function (value)
-    local formatted_entries <const> = {}
-    for entry_key, entry_value in pairs(value) do
-      local formatted_key <const> = "[" .. key_slot('format', entry_key) .. "]"
-      local formatted_value <const> = value_slot('format', entry_value)
-      table.insert(formatted_entries, formatted_key .. "=" .. formatted_value)
-    end
-
-    return ("{" .. table.concat(formatted_entries, ",") .. "}")
-  end)
-end
-
 --[[
 Slot Optional Wrapper
 --]]
@@ -279,6 +161,8 @@ end
 
 --[[
 DataTable
+
+A table with defined string keys pointing to corresponding slot values.
 --]]
 
 local datatable_type_metatable <const> = {}
@@ -288,35 +172,32 @@ local datatable_instance_metatable <const> = {}
 local datatable_instance_private <const> = setmetatable({}, {__mode='k'})
 
 -- instance implementation
+local datatable_instance_check <const> = function (value)
+  local instance_private <const> = assert(
+    datatable_instance_private[value],
+    "DataTable instance not recognized: " .. tostring(value)
+  )
+
+  local datatable_private <const> = assert(
+    datatable_type_private[instance_private.datatable],
+    "DataTable type not recognized: " .. tostring(value)
+  )
+
+  return instance_private, datatable_private
+end
+
 local datatable_instance_internal_metatable <const> = {
   __name = 'DataTable',
   __metatable = datatable_instance_metatable,
   __index = function (self, key)
-    local private <const> = assert(
-      datatable_instance_private[self],
-      "DataTable instance not recognized: " .. tostring(self)
-    )
+    local private <const>, datatable_private <const> = datatable_instance_check(self)
+    local slot <const> = assert(datatable_private.slots[key], "DataTable slot not found: " .. tostring(key))
 
-    local datatable <const> = assert(
-      datatable_type_private[private.datatable],
-      "DataTable type not recognized: " .. tostring(self)
-    )
-
-    local slot <const> = assert(datatable.slots[key], "DataTable slot not found: " .. tostring(key))
     return private.data[key]
   end,
   __newindex = function (self, key, value)
-    local private <const> = assert(
-      datatable_instance_private[self],
-      "DataTable instance not recognized: " .. tostring(self)
-    )
-
-    local datatable <const> = assert(
-      datatable_type_private[private.datatable],
-      "DataTable type not recognized: " .. tostring(self)
-    )
-
-    local slot <const> = assert(datatable.slots[key], "DataTable slot not found: " .. tostring(key))
+    local private <const>, datatable_private <const> = datatable_instance_check(self)
+    local slot <const> = assert(datatable_private.slots[key], "DataTable slot not found: " .. tostring(key))
     assert(not private.frozen, "DataTable instance is frozen")
 
     local value, message = slot('validate', value)
@@ -330,7 +211,7 @@ local datatable_instance_internal_metatable <const> = {
     local previous_value <const> = private.data[key]
     private.data[key] = value
 
-    local message = datatable.validator(private.data)
+    local message = datatable_private.validator(private.data)
     if message ~= nil then
       private.data[key] = previous_value  -- XXX: is there a better way without a shallow copy of private.data?
       assert(type(message) == 'string', "DataTable validator function must return a string message")
@@ -338,15 +219,7 @@ local datatable_instance_internal_metatable <const> = {
     end
   end,
   __pairs = function (self)
-    local private <const> = assert(
-      datatable_instance_private[self],
-      "DataTable instance not recognized: " .. tostring(self)
-    )
-
-    local datatable <const> = assert(
-      datatable_type_private[private.datatable],
-      "DataTable type not recognized: " .. tostring(self)
-    )
+    local private <const>, datatable_private <const> = datatable_instance_check(self)
 
     -- note: lua table iteration is in arbitrary order whereas this always
     -- iterates in the same order which is technically backwards compatible
@@ -364,7 +237,7 @@ local datatable_instance_internal_metatable <const> = {
     end
 
     local keys <const> = {}
-    for name, _ in pairs(datatable.slots) do
+    for name, _ in pairs(datatable_private.slots) do
       table.insert(keys, name)
     end
 
@@ -382,88 +255,20 @@ local datatable_type_is <const> = function (self, value)
     return false
   end
 
-  local private <const> = assert(
-    datatable_instance_private[value],
-    "DataTable instance not recognized: " .. tostring(value)
-  )
-
-  return (private.datatable == self)
-end
-
-local datatable_type_freeze <const> = function (self, instance)
-  local private <const> = assert(
-    datatable_instance_private[instance],
-    "DataTable instance not recognized: " .. tostring(instance)
-  )
-
-  assert(private.datatable == self, "DataTable type method used with incompatible type")
-  local datatable <const> = assert(
-    datatable_type_private[private.datatable],
-    "DataTable type not recognized: " .. tostring(private.datatable)
-  )
-
-  -- validate the instance first
-  local message <const> = datatable.validator(private.data)
-  if message ~= nil then
-    assert(type(message) == 'string', "DataTable validator function must return a string message")
-    error("DataTable instance data is not valid: " .. message)
-  end
-
-  -- use breadth-first search starting from this datatable instance to find
-  -- all the nested datatables and freeze them
-  local instances <const> = {private}
-  while #instances > 0 do
-    local instance_private <const> = table.remove(instances, 1)
-    instance_private.frozen = true
-
-    for key, value in pairs(instance_private.data) do
-      if getmetatable(value) == datatable_instance_metatable then
-        local instance_private <const> = datatable_instance_private[value]
-        table.insert(instances, instance_private)
-      end
-    end
-  end
-
-  -- return the datatable instance to make chaining and returning it easy
-  return instance
+  local instance_private <const>, _ = datatable_instance_check(value)
+  return (instance_private.datatable == self)
 end
 
 local datatable_type_is_frozen <const> = function (self, instance)
-  local private <const> = assert(
-    datatable_instance_private[instance],
-    "DataTable instance not recognized: " .. tostring(self)
-  )
+  local instance_private <const>, _ = datatable_instance_check(instance)
+  assert(instance_private.datatable == self, "DataTable type method used with incompatible type")
 
-  assert(private.datatable == self, "DataTable type method used with incompatible type")
-  return private.frozen
-end
-
-local datatable_type_validate <const> = function (self, instance)
-  local private <const> = assert(
-    datatable_instance_private[instance],
-    "DataTable instance not recognized: " .. tostring(instance)
-  )
-
-  assert(private.datatable == self, "DataTable type method used with incompatible type")
-  local datatable <const> = assert(
-    datatable_type_private[private.datatable],
-    "DataTable type not recognized: " .. tostring(private.datatable)
-  )
-
-  local message = datatable.validator(private.data)
-  if message ~= nil then
-    assert(type(message) == 'string', "DataTable validator function must return a string message")
-    return false, message
-  end
-
-  return true, nil
+  return instance_private.frozen
 end
 
 local datatable_type_class_methods <const> = {
   ['is']=datatable_type_is,
-  ['freeze']=datatable_type_freeze,
   ['is_frozen']=datatable_type_is_frozen,
-  ['validate']=datatable_type_validate,
 }
 
 local datatable_type_internal_metatable <const> = {
@@ -608,22 +413,489 @@ local DataTable <const> = setmetatable({
 })
 
 --[[
-DataTable Slot Wrapper
+ArrayTable
+
+A table with contiguous integer keys and a slot enforced values.
 --]]
 
-local function DataTableSlot(datatable_type)
-  assert(DataTable.is(datatable_type), "datatable_type must be a DataTable type instance")
+local arraytable_type_metatable <const> = {}
+local arraytable_type_private <const> = setmetatable({}, {__mode='k'})
 
-  return Slot.create(function (value)
-    if datatable_type:is(value) then
-      return value
+local arraytable_instance_metatable <const> = {}
+local arraytable_instance_private <const> = setmetatable({}, {__mode='k'})
+
+-- instance implementation
+local arraytable_instance_check <const> = function (value)
+  local instance_private <const> = assert(
+    arraytable_instance_private[value],
+    "ArrayTable instance not recognized: " .. tostring(value)
+  )
+
+  local arraytable_private <const> = assert(
+    arraytable_type_private[instance_private.arraytable],
+    "ArrayTable type not recognized: " .. tostring(value)
+  )
+
+  return instance_private, arraytable_private
+end
+
+local arraytable_instance_internal_metatable <const> = {
+  __name = 'ArrayTable',
+  __metatable = arraytable_instance_metatable,
+  __len = function (self)
+    local private <const>, _ = arraytable_instance_check(self)
+
+    return #private.data
+  end,
+  __index = function (self, key)
+    local private <const>, _ = arraytable_instance_check(self)
+
+    if math.type(key) ~= 'integer' then
+      error("ArrayTable index must be an integer: " .. tostring(key))
     end
 
-    return nil, "value must be an instance of datatable: " .. tostring(datatable_type)
+    return private.data[key]
+  end,
+  __newindex = function (self, key, value)
+    local private <const>, arraytable_private <const> = arraytable_instance_check(self)
+    assert(not private.frozen, "ArrayTable instance is frozen")
+
+    if math.type(key) ~= 'integer' then
+      error("ArrayTable index must be an integer: " .. tostring(key))
+    end
+
+    if key <= 0 then
+      error("ArrayTable index must be positive: " .. tostring(key))
+    end
+
+    if value ~= nil then
+      local value, message = arraytable_private.value_slot('validate', value)
+      if message then
+        error("ArrayTable index " .. tostring(key) .. ": " .. message)
+      end
+    end
+
+    -- TODO: use a flag to toggle whether we should always run the arraytable
+    -- validator or not, we may want to delay that until later
+
+    local previous_value <const> = private.data[key]
+    private.data[key] = value
+
+    -- validate array indices are contiguous
+    local key_count = 0
+    for _, _ in pairs(private.data) do
+      key_count = key_count + 1
+    end
+
+    if key_count ~= #private.data then
+      private.data[key] = previous_value
+      error("ArrayTable indices must be contiguous")
+    end
+
+    -- validate new array data
+    local message = arraytable_private.validator(private.data)
+    if message ~= nil then
+      private.data[key] = previous_value
+      assert(type(message) == 'string', "ArrayTable validator function must return a string message")
+      error("ArrayTable instance data is not valid: " .. message)
+    end
+  end,
+  __pairs = function (self)
+    local private <const>, _ = arraytable_instance_check(self)
+
+    -- for loops: https://www.lua.org/manual/5.4/manual.html#3.3.5
+    local function iterate(data, index) -- state variable, initial or previous control value
+      index = index + 1
+      local value <const> = data[index]
+
+      if value == nil then
+        return
+      end
+
+      return index, value -- control value, remaining loop values
+    end
+
+    -- iterator function, state variable, initial control value, closing variable
+    return iterate, private.data, 0, nil
+  end,
+  __gc = function (self)
+    arraytable_instance_private[self] = nil
+  end
+}
+
+-- type implementation
+local arraytable_type_is <const> = function (self, value)
+  if getmetatable(value) ~= arraytable_instance_metatable then
+    return false
+  end
+
+  local instance_private <const>, _ = arraytable_instance_check(value)
+  return (instance_private.arraytable == self)
+end
+
+local arraytable_type_is_frozen <const> = function (self, instance)
+  local instance_private <const>, _ = arraytable_instance_check(instance)
+  assert(instance_private.arraytable == self, "ArrayTable type method used with incompatible type")
+
+  return instance_private.frozen
+end
+
+local arraytable_type_class_methods <const> = {
+  ['is']=arraytable_type_is,
+  ['is_frozen']=arraytable_type_is_frozen,
+}
+
+local arraytable_type_internal_metatable <const> = {
+  __name = 'ArrayTableType',
+  __metatable = arraytable_type_metatable,
+  __index = function (self, key)
+    local private <const> = assert(
+      arraytable_type_private[self],
+      "ArrayTable type not recognized: " .. tostring(self)
+    )
+
+    -- value slot
+    if key == 'value_slot' then
+      return private.value_slot
+    -- arraytable frozen flag
+    elseif key == 'freeze_instances' then
+      return private.freeze_instances
+    -- class methods
+    elseif arraytable_type_class_methods[key] ~= nil then
+      return arraytable_type_class_methods[key]
+    -- unknown key
+    else
+      return nil
+    end
+  end,
+  __newindex = function (_, _, _)
+    error("ArrayTable definition cannot be modified")
+  end,
+  __call = function (self, value_data, flag_data)
+    local private <const> = assert(
+      arraytable_type_private[self],
+      "ArrayTable type not recognized: " .. tostring(self)
+    )
+
+    local key_count = 0
+    local initial_data <const> = {}
+    for key, value in pairs(value_data) do
+      if math.type(key) ~= 'integer' then
+        error("ArrayTable indices must be integers")
+      end
+
+      if key <= 0 then
+        error("ArrayTable indices must be positive")
+      end
+
+      local value, message = private.value_slot('validate', value)
+      if message then
+        error("ArrayTable index " .. tostring(index) .. ": " .. message)
+      end
+
+      key_count = key_count + 1
+      initial_data[key] = value
+    end
+
+    if key_count ~= #value_data then
+      error("ArrayTable indices must be contiguous")
+    end
+
+    local message <const> = private.validator(initial_data)
+    if message ~= nil then
+      assert(type(message) == 'string', "ArrayTable validator function must return a string message")
+      error("ArrayTable instance data is not valid: " .. message)
+    end
+
+    local flags <const> = flag_data or {}
+    if type(flags) ~= 'table' then
+      error("ArrayTable instance flags must be a table")
+    end
+
+    local frozen <const> = flags['frozen']
+    if frozen ~= nil then
+      if type(frozen) ~= 'boolean' then
+        error("ArrayTable instance frozen flag must be a boolean")
+      end
+
+      if private.freeze_instances and not frozen then
+        error("ArrayTable type freeze_instances requires instances to also be frozen")
+      end
+    end
+
+    local instance_frozen <const> = (frozen or private.freeze_instances)
+    local instance <const> = {}
+    arraytable_instance_private[instance] = {
+      arraytable=self,
+      data=initial_data,
+      frozen=instance_frozen
+    }
+
+    return setmetatable(instance, arraytable_instance_internal_metatable)
+  end,
+  __gc = function (self)
+    arraytable_type_private[self] = nil
+  end
+}
+
+-- public interface
+local ArrayTable <const> = setmetatable({
+  create = function (config_data)
+    if type(config_data) ~= 'table' then
+      error("ArrayTable config must be a table")
+    end
+
+    local value_slot <const> = (config_data['value_slot'] or AnySlot)
+    if not Slot.is(value_slot) then
+      error("ArrayTable value_slot must be a Slot instance")
+    end
+
+    local freeze_instances <const> = (config_data['freeze_instances'] or false)
+    if type(freeze_instances) ~= 'boolean' then
+      error("ArrayTable freeze_instances flag must be a boolean")
+    end
+
+    local validator <const> = (config_data['validator'] or (function (_) return end))
+    if type(validator) ~= 'function' then
+      error("ArrayTable validator flag must be a function")
+    end
+
+    local instance <const> = {}
+    arraytable_type_private[instance] = {
+      value_slot=value_slot,
+      freeze_instances=freeze_instances,
+      validator=validator
+    }
+
+    return setmetatable(instance, arraytable_type_internal_metatable)
+  end,
+  is = function (value)
+    return (getmetatable(value) == arraytable_type_metatable)
+  end
+}, {
+  __call = function (self, ...)
+    return self.create(...)
+  end
+})
+
+--[[
+Generic Internal Helpers
+--]]
+
+local generic_table_is_instance <const> = function (value)
+  local mt <const> = getmetatable(value)
+  return (
+    mt == datatable_instance_metatable or
+    mt == arraytable_instance_metatable
+  )
+end
+
+local generic_table_is_type <const> = function (value)
+  local mt <const> = getmetatable(value)
+  return (
+    mt == datatable_type_metatable or
+    mt == arraytable_type_metatable
+  )
+end
+
+-- return a shallow copy of table instances contained by the provided instance
+-- note: this only checks one level deep in order to avoid searching
+local generic_table_nested_instances = function (instance)
+  local values <const> = {}
+
+  if getmetatable(instance) == datatable_instance_metatable then
+    local private <const> = assert(datatable_instance_private[instance])
+
+    for _, value in pairs(private.data) do
+      if generic_table_is_instance(value) then
+        table.insert(values, value)
+      end
+    end
+  elseif getmetatable(instance) == arraytable_instance_metatable then
+    local private <const> = assert(arraytable_instance_private[instance])
+
+    for _, value in ipairs(private.data) do
+      if generic_table_is_instance(value) then
+        table.insert(values, value)
+      end
+    end
+  else
+    error("invalid table instance type")
+  end
+
+  return values
+end
+
+--[[
+Table Slot Wrapper
+--]]
+
+local function TableSlot(table_type, validate)
+  assert(generic_table_is_type(table_type), "table_type must be an DataTable or ArrayTable type")
+  assert(type(validate) == 'boolean' or validate == nil, "validate must be a boolean or nil")
+
+  return Slot.create(function (value)
+    if not table_type:is(value) then
+      return nil, "value must be an instance of table type: " .. tostring(table_type)
+    end
+
+    if validate then
+      local valid <const>, message <const> = table_type:validate(value)
+      if not valid then
+        return nil, message
+      end
+    end
+
+    return value
   end, function (value)
-    return tostring(datatable_type)
+    return tostring(table_type)
   end)
 end
+
+--[[
+Table Validation
+--]]
+
+local generic_table_type_validate <const> = function (root_instance, recurse)
+  -- freeze the provided instance
+  local function _validate_instance(instance)
+    local mt <const> = getmetatable(instance)
+    if mt == datatable_instance_metatable then
+      local instance_private <const> = assert(datatable_instance_private[instance])
+      local datatable_private <const> = assert(datatable_type_private[instance_private.datatable])
+
+      local message <const> = datatable_private.validator(instance_private.data)
+      if message ~= nil then
+        -- TODO: improve the error to specify which nested instance failed validation
+        assert(type(message) == 'string', "DataTable validator function must return a string message")
+        return false, message
+      end
+    elseif mt == arraytable_instance_metatable then
+      local instance_private <const> = assert(arraytable_instance_private[instance])
+      local arraytable_private <const> = assert(arraytable_type_private[instance_private.arraytable])
+
+      local message <const> = arraytable_private.validator(instance_private.data)
+      if message ~= nil then
+        -- TODO: improve the error to specify which nested instance failed validation
+        assert(type(message) == 'string', "ArrayTable validator function must return a string message")
+        return false, message
+      end
+    else
+      error("invalid table instance type")
+    end
+
+    return true, nil
+  end
+
+  -- use breadth-first search from the root instance to find all nested tables
+  local instances <const> = {root_instance}
+  while #instances > 0 do
+    local instance <const> = table.remove(instances, 1)
+    local valid <const>, message <const> = _validate_instance(instance)
+    if not valid then
+      return false, message
+    end
+
+    local nested_instances <const> = generic_table_nested_instances(instance)
+    for _, nested_instance in ipairs(nested_instances) do
+      table.insert(instances, nested_instance)
+    end
+  end
+
+  return true, nil
+end
+
+local datatable_type_validate <const> = function (self, instance)
+  local instance_private <const>, _ = datatable_instance_check(instance)
+  assert(instance_private.datatable == self, "DataTable type method used with incompatible type")
+
+  return generic_table_type_validate(instance)
+end
+
+local arraytable_type_validate <const> = function (self, instance)
+  local instance_private <const>, _ = arraytable_instance_check(instance)
+  assert(instance_private.arraytable == self, "ArrayTable type method used with incompatible type")
+
+  return generic_table_type_validate(instance)
+end
+
+datatable_type_class_methods['validate'] = datatable_type_validate
+arraytable_type_class_methods['validate'] = arraytable_type_validate
+
+--[[
+Table Freezing
+--]]
+
+local generic_table_type_freeze <const> = function (root_instance)
+  -- freeze the provided instance
+  local function _freeze_instance(instance)
+    local mt <const> = getmetatable(instance)
+    if mt == datatable_instance_metatable then
+      local instance_private <const> = assert(datatable_instance_private[instance])
+      local datatable_private <const> = assert(datatable_type_private[instance_private.datatable])
+
+      local message <const> = datatable_private.validator(instance_private.data)
+      if message ~= nil then
+        -- TODO: improve the error to specify which nested instance failed validation
+        assert(type(message) == 'string', "DataTable validator function must return a string message")
+        error("DataTable instance data is not valid: " .. message)
+      end
+
+      instance_private.frozen = true
+    elseif mt == arraytable_instance_metatable then
+      local instance_private <const> = assert(arraytable_instance_private[instance])
+      local arraytable_private <const> = assert(arraytable_type_private[instance_private.arraytable])
+
+      local message <const> = arraytable_private.validator(instance_private.data)
+      if message ~= nil then
+        -- TODO: improve the error to specify which nested instance failed validation
+        assert(type(message) == 'string', "ArrayTable validator function must return a string message")
+        error("ArrayTable instance data is not valid: " .. message)
+      end
+
+      instance_private.frozen = true
+    else
+      error("invalid table instance type")
+    end
+  end
+
+  -- use breadth-first search from the root instance to find all nested tables
+  local instances <const> = {root_instance}
+  while #instances > 0 do
+    local instance <const> = table.remove(instances, 1)
+    _freeze_instance(instance)
+
+    local nested_instances <const> = generic_table_nested_instances(instance)
+    for _, nested_instance in ipairs(nested_instances) do
+      table.insert(instances, nested_instance)
+    end
+  end
+end
+
+local datatable_type_freeze <const> = function (self, instance)
+  local instance_private <const>, _ = datatable_instance_check(instance)
+  assert(instance_private.datatable == self, "DataTable type method used with incompatible type")
+
+  -- use shared generic implementation
+  generic_table_type_freeze(instance)
+
+  -- return the datatable instance to make chaining and returning it easy
+  return instance
+end
+
+local arraytable_type_freeze <const> = function (self, instance)
+  local instance_private <const>, _ = arraytable_instance_check(instance)
+  assert(instance_private.arraytable == self, "ArrayTable type method used with incompatible type")
+
+  -- use shared generic implementation
+  generic_table_type_freeze(instance)
+
+  -- return the datatable instance to make chaining and returning it easy
+  return instance
+end
+
+datatable_type_class_methods['freeze'] = datatable_type_freeze
+arraytable_type_class_methods['freeze'] = arraytable_type_freeze
 
 --[[
 Module Interface
@@ -640,18 +912,18 @@ local module = {
   NumberSlot=NumberSlot,
   IntegerSlot=IntegerSlot,
   FloatSlot=FloatSlot,
-  TableSlot=TableSlot,
-
-  -- slot factories
-  create_array_table_slot=create_array_table_slot,
-  create_map_table_slot=create_map_table_slot,
 
   -- slot wrappers
   Optional=Optional,
-  DataTableSlot=DataTableSlot,
 
   -- datatable
-  DataTable=DataTable
+  DataTable=DataTable,
+
+  -- arraytable
+  ArrayTable=ArrayTable,
+
+  -- table slot wrappers
+  TableSlot=TableSlot,
 }
 
 if os.getenv('LUA_DATATABLE_LEAK_INTERNALS') == 'TRUE' then
@@ -663,10 +935,20 @@ if os.getenv('LUA_DATATABLE_LEAK_INTERNALS') == 'TRUE' then
   -- stating the obvious but these are not part of the public interface
   module['slot_metatable'] = slot_metatable
   module['slot_private'] = slot_private
+
   module['datatable_type_metatable'] = datatable_type_metatable
   module['datatable_type_private'] = datatable_type_private
   module['datatable_instance_metatable'] = datatable_instance_metatable
   module['datatable_instance_private'] = datatable_instance_private
+
+  module['arraytable_type_metatable'] = arraytable_type_metatable
+  module['arraytable_type_private'] = arraytable_type_private
+  module['arraytable_instance_metatable'] = arraytable_instance_metatable
+  module['arraytable_instance_private'] = arraytable_instance_private
+
+  module['generic_table_is_instance'] = generic_table_is_instance
+  module['generic_table_is_type'] = generic_table_is_type
+  module['generic_table_nested_instances'] = generic_table_nested_instances
 end
 
 return module

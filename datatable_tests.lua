@@ -15,10 +15,9 @@ local function countTableKeys(value)
 end
 
 --[[
-Unit Tests
+Slot Unit Tests
 --]]
 
--- slot tests
 test_slot = {}
 
 function test_slot.test_lifecycle()
@@ -35,88 +34,6 @@ end
 
 -- TODO: validator method guard rails
 -- TODO: formatter method guard rails
-
-function test_slot.test_create_array_table_slot()
-  local values_slot <const> = dt.IntegerSlot
-  local array_slot <const> = dt.create_array_table_slot{
-    contiguous=true,
-    min_keys=3,
-    max_keys=5,
-    values=values_slot
-  }
-
-  lu.assertTrue(dt.Slot.is(array_slot))
-
-  local valid_value <const> = {1, 2, 3, 4}
-  local value, message = array_slot('validate', valid_value)
-  lu.assertEquals(value, valid_value)
-  lu.assertNil(message)
-
-  local value, message = array_slot('validate', {})
-  lu.assertNil(value)
-  lu.assertEquals(message, "array must contain at least 3 keys")
-
-  local value, message = array_slot('validate', {1, 2, 3, 4, 5, 6})
-  lu.assertNil(value)
-  lu.assertEquals(message, "array must contain no more than 5 keys")
-
-  local value, message = array_slot('validate', {1, 2, 3, [10]=4})
-  lu.assertNil(value)
-  lu.assertEquals(message, "array must be contiguous")
-
-  local value, message = array_slot('validate', {['foo']=1})
-  lu.assertNil(value)
-  lu.assertEquals(message, "array table keys must be integers")
-
-  local invalid_value <const> = 10.5
-  local internal_value, internal_message = values_slot('validate', invalid_value)
-  lu.assertNil(internal_value)
-  lu.assertTrue(string.len(internal_message) > 0)
-
-  local value, message = array_slot('validate', {invalid_value})
-  lu.assertNil(value)
-  lu.assertEquals(message, "array table value invalid: " .. internal_message)
-
-  -- TODO: formatting
-end
-
-function test_slot.test_create_map_table_slot()
-  local keys_slot <const> = dt.StringSlot
-  local values_slot <const> = dt.IntegerSlot
-  local map_slot <const> = dt.create_map_table_slot{
-    keys=keys_slot,
-    values=values_slot
-  }
-
-  lu.assertTrue(dt.Slot.is(map_slot))
-
-  local valid_value <const> = {['score']=10}
-  local value, message = map_slot('validate', valid_value)
-  lu.assertEquals(value, valid_value)
-  lu.assertNil(message)
-
-  local invalid_map_key <const> = 10.5
-  local internal_key_value, internal_key_message = keys_slot('validate', invalid_map_key)
-  lu.assertNil(internal_key_value)
-  lu.assertTrue(string.len(internal_key_message) > 0)
-
-  local invalid_map_by_key <const> = {[invalid_map_key]=10}
-  local value, message = map_slot('validate', invalid_map_by_key)
-  lu.assertNil(value)
-  lu.assertEquals(message, "map table key: " .. internal_key_message)
-
-  local invalid_map_value <const> = 10.5
-  local internal_value_value, internal_value_message = values_slot('validate', invalid_map_value)
-  lu.assertNil(internal_value_value)
-  lu.assertTrue(string.len(internal_value_message) > 0)
-
-  local invalid_map_by_value <const> = {['score']=invalid_map_value}
-  local value, message = map_slot('validate', invalid_map_by_value)
-  lu.assertNil(value)
-  lu.assertEquals(message, "map table value: " .. internal_value_message)
-
-  -- TODO: formatting
-end
 
 function test_slot.test_optional_wrapper()
   -- internal slot works as expected
@@ -145,7 +62,10 @@ function test_slot.test_optional_wrapper()
   lu.assertEquals(format_inner, format_outer)
 end
 
--- datatable type tests
+--[[
+DataTable Type Unit Tests
+--]]
+
 test_datatable_type = {}
 
 function test_datatable_type.test_lifecycle()
@@ -198,7 +118,6 @@ function test_datatable_type.test_default_slots()
     name=dt.StringSlot,
     age=dt.IntegerSlot,
     height=dt.NumberSlot,
-    aliases=dt.TableSlot
   }
 
   local expected_slot_names <const> = {
@@ -206,7 +125,6 @@ function test_datatable_type.test_default_slots()
     ['name']=true,
     ['age']=true,
     ['height']=true,
-    ['aliases']=true
   }
 
   for name, slot in pairs(Person.slots) do
@@ -232,25 +150,10 @@ function test_datatable_type.test_is_instance()
   lu.assertFalse(dt.DataTable.is({}))
 end
 
-function test_datatable_type.test_slot_wrapper()
-  local Mock <const> = dt.DataTable{name=dt.StringSlot}
-  local instance <const> = Mock{name='alex'}
+--[[
+DataTable Instance Unit Tests
+--]]
 
-  local mock_slot <const> = dt.DataTableSlot(Mock)
-  lu.assertTrue(dt.Slot.is(mock_slot))
-
-  local value, message = mock_slot('validate', instance)
-  lu.assertEquals(value, instance)
-  lu.assertNil(message)
-
-  local value, message = mock_slot('validate', 'obviously-not-a-slot')
-  lu.assertNil(value)
-  lu.assertStrContains(message, "value must be an instance of datatable: DataTableType: ")
-
-  -- TODO: formatting
-end
-
--- datatable instance tests
 test_datatable = {}
 
 function test_datatable.test_lifecycle()
@@ -318,7 +221,6 @@ function test_datatable.test_default_slots()
     name=dt.StringSlot,
     age=dt.IntegerSlot,
     height=dt.Optional(dt.NumberSlot),
-    aliases=dt.TableSlot
   }
 
   local john_doe <const> = Person{
@@ -326,14 +228,12 @@ function test_datatable.test_default_slots()
     name='John Doe',
     age=18,
     height=80.5,
-    aliases={'Johnny'}
   }
 
   lu.assertEquals(john_doe.alive, true)
   lu.assertEquals(john_doe.name, 'John Doe')
   lu.assertEquals(john_doe.age, 18)
   lu.assertEquals(john_doe.height, 80.5)
-  lu.assertEquals(john_doe.aliases, {'Johnny'})
 
   john_doe.alive = false
   lu.assertErrorMsgContains(
@@ -381,17 +281,6 @@ function test_datatable.test_default_slots()
 
   john_doe.height = nil
   lu.assertNil(john_doe.height)
-
-  john_doe.aliases = {}
-  lu.assertErrorMsgContains(
-    "DataTable slot 'aliases': slot value must be a table",
-    function (i, k, v)
-      i[k] = v
-    end,
-    john_doe,
-    'aliases',
-    'hello'
-  )
 end
 
 function test_datatable.test_frozen()
@@ -465,8 +354,8 @@ end
 function test_datatable.test_freezing_nested()
   local Point <const> = dt.DataTable{x=dt.IntegerSlot, y=dt.IntegerSlot}
   local Line <const> = dt.DataTable{
-    a=dt.DataTableSlot(Point),
-    b=dt.DataTableSlot(Point)
+    a=dt.TableSlot(Point),
+    b=dt.TableSlot(Point)
   }
 
   local instance <const> = Line{
@@ -549,8 +438,8 @@ function test_datatable.test_validator()
   -- XXX: not necessary if we always validate on mutation
   local Point <const> = dt.DataTable{x=dt.IntegerSlot, y=dt.IntegerSlot}
   local Vector <const> = dt.DataTable({
-    from=dt.DataTableSlot(Point),
-    to=dt.DataTableSlot(Point)
+    from=dt.TableSlot(Point),
+    to=dt.TableSlot(Point)
   }, {
     validator=(function (data)
       local from_normal = math.sqrt((data.from.x ^ 2) + (data.from.y ^ 2))
@@ -594,7 +483,6 @@ function test_datatable.test_data_pairs_enumeration()
     name=dt.StringSlot,
     age=dt.IntegerSlot,
     height=dt.NumberSlot,
-    aliases=dt.TableSlot
   }
 
   local data <const> = {
@@ -602,7 +490,6 @@ function test_datatable.test_data_pairs_enumeration()
     name='John Doe',
     age=18,
     height=80.5,
-    aliases={'Johnny'}
   }
 
   local john_doe <const> = Person(data)
@@ -633,6 +520,370 @@ function test_datatable.test_is_instance()
 end
 
 --[[
+ArrayTable Type Unit Tests
+--]]
+
+test_arraytable_type = {}
+
+function test_arraytable_type.test_lifecycle()
+  collectgarbage('collect')
+  local initial_count = countTableKeys(dt.arraytable_type_private)
+
+  local instance = dt.ArrayTable{}
+  lu.assertEquals(countTableKeys(dt.arraytable_type_private), initial_count + 1)
+
+  instance = nil
+  collectgarbage('collect')
+  lu.assertEquals(countTableKeys(dt.arraytable_type_private), initial_count)
+end
+
+function test_arraytable_type.test_frozen()
+  local MutableArrayTable <const> = dt.ArrayTable{}
+  lu.assertFalse(MutableArrayTable.freeze_instances)
+
+  local FrozenArrayTable <const> = dt.ArrayTable{freeze_instances=true}
+  lu.assertTrue(FrozenArrayTable.freeze_instances)
+end
+
+function test_arraytable_type.test_is_instance()
+  local instance <const> = dt.ArrayTable{}
+  lu.assertTrue(dt.ArrayTable.is(instance))
+  lu.assertFalse(dt.ArrayTable.is({}))
+end
+
+--[[
+ArrayTable Instance Unit Tests
+--]]
+
+test_arraytable = {}
+
+function test_arraytable.test_lifecycle()
+  collectgarbage('collect')
+  local initial_count = countTableKeys(dt.arraytable_instance_private)
+
+  local Mock <const> = dt.ArrayTable{}
+  local instance = Mock{1, 2, 3}
+  lu.assertEquals(countTableKeys(dt.arraytable_instance_private), initial_count + 1)
+
+  instance = nil
+  collectgarbage('collect')
+  lu.assertEquals(countTableKeys(dt.arraytable_instance_private), initial_count)
+end
+
+function test_arraytable.test_custom_slot()
+  local PersonAges <const> = dt.ArrayTable{
+    value_slot=dt.Slot(function (value)
+      if type(value) ~= 'number' or value <= 0 then
+        return nil, "custom_age_slot_error"
+      end
+
+      return value
+    end)
+  }
+
+  local ages <const> = PersonAges{1, 2}
+  lu.assertEquals(#ages, 2)
+  lu.assertEquals(ages[1], 1)
+  lu.assertEquals(ages[2], 2)
+
+  ages[1] = 29
+  lu.assertEquals(ages[1], 29)
+
+  lu.assertErrorMsgContains(
+    "custom_age_slot_error",
+    function (i, k, v)
+      i[k] = v
+    end,
+    ages,
+    2,
+    -20
+  )
+end
+
+function test_arraytable.test_indices()
+  local Integers <const> = dt.ArrayTable{value_slot=dt.IntegerSlot}
+
+  -- validate indices on creation
+  lu.assertErrorMsgContains(
+    "ArrayTable indices must be contiguous",
+    Integers,
+    {[1]=10, [3]=20}
+  )
+
+  lu.assertErrorMsgContains(
+    "ArrayTable indices must be positive",
+    Integers,
+    {[-5]=10, [3]=20}
+  )
+
+  -- validate indices on mutation
+  local instance <const> = Integers{}
+  table.insert(instance, 10)
+  table.insert(instance, 20)
+
+  lu.assertEquals(#instance, 2)
+  lu.assertEquals(instance[1], 10)
+  lu.assertEquals(instance[2], 20)
+
+  table.remove(instance, 1)
+  lu.assertEquals(#instance, 1)
+  lu.assertEquals(instance[1], 20)
+
+  lu.assertErrorMsgContains(
+    "ArrayTable indices must be contiguous",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance,
+    4,
+    100
+  )
+
+  lu.assertErrorMsgContains(
+    "ArrayTable index must be positive: ",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance,
+    -5,
+    100
+  )
+
+  table.insert(instance, 40)
+  table.insert(instance, 50)
+  lu.assertEquals(#instance, 3)
+
+  lu.assertErrorMsgContains(
+    "ArrayTable indices must be contiguous",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance,
+    2,
+    nil
+  )
+end
+
+function test_arraytable.test_frozen()
+  -- arraytable with isntances that are always frozen
+  local FrozenIntegers <const> = dt.ArrayTable{value_slot=dt.IntegerSlot, freeze_instances=true}
+  lu.assertTrue(FrozenIntegers.freeze_instances)
+
+  lu.assertErrorMsgContains(
+    "ArrayTable type freeze_instances requires instances to also be frozen",
+    FrozenIntegers,
+    {10, 20, 30},
+    {frozen=false}
+  )
+
+  local frozen_numbers <const> = FrozenIntegers{2, 42}
+
+  lu.assertErrorMsgContains(
+    "ArrayTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    frozen_numbers,
+    3,
+    100
+  )
+
+  -- arraytable with instances frozen on creation
+  local Integers <const> = dt.ArrayTable{value_slot=dt.IntegerSlot}
+  lu.assertFalse(Integers.freeze_instances)
+
+  local more_numbers <const> = Integers({2, 42}, {frozen=true})
+
+  lu.assertErrorMsgContains(
+    "ArrayTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    more_numbers,
+    3,
+    100
+  )
+
+  -- arraytable with instances frozen on demand
+  local scratch_numbers <const> = Integers{1, 1, 2}
+  lu.assertFalse(Integers:is_frozen(scratch_numbers))
+
+  Integers:freeze(scratch_numbers)
+  lu.assertTrue(Integers:is_frozen(scratch_numbers))
+
+  lu.assertErrorMsgContains(
+    "ArrayTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    scratch_numbers,
+    3,
+    100
+  )
+end
+
+function test_arraytable.test_freezing_nested()
+  local Integers <const> = dt.ArrayTable{value_slot=dt.IntegerSlot}
+  local Points <const> = dt.ArrayTable{value_slot=dt.TableSlot(Integers)}
+
+  local instance <const> = Points{
+    Integers{1, 2, 3},
+    Integers{4, 5, 6}
+  }
+
+  instance[1] = Integers{7, 8, 9}
+  instance[2][1] = 10
+
+  local returned_instance <const> = Points:freeze(instance)
+  lu.assertEquals(returned_instance, instance)
+
+  lu.assertErrorMsgContains(
+    "ArrayTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance,
+    1,
+    Integers{}
+  )
+
+  lu.assertErrorMsgContains(
+    "ArrayTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance[1],
+    1,
+    100
+  )
+
+  lu.assertErrorMsgContains(
+    "ArrayTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance[2],
+    1,
+    100
+  )
+end
+
+function test_arraytable.test_validator()
+  -- always validate on arraytable instance mutation
+  -- TODO: use flag to toggle this behavior
+  local EvenIntegers <const> = dt.ArrayTable{
+    value_slot=dt.IntegerSlot,
+    validator=(function (data)
+      for _, value in ipairs(data) do
+        if value % 2 ~= 0 then
+          return "Values must be even integers"
+        end
+      end
+    end)
+  }
+
+  local instance <const> = EvenIntegers{2, 4, 6}
+  instance[1] = 10
+  instance[2] = 12
+
+  lu.assertErrorMsgContains(
+    "Values must be even integers",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance,
+    4,
+    3
+  )
+
+  lu.assertErrorMsgContains(
+    "Values must be even integers",
+    EvenIntegers,
+    {7, 8}
+  )
+
+  -- TODO: validate arraytable instance on demand
+  -- XXX: not necessary if we always validate on mutation
+
+  -- TODO: validate on freeze
+  -- XXX: not necessary if we always validate on mutation
+end
+
+function test_arraytable.test_enumeration()
+  local Integers <const> = dt.ArrayTable{value_slot=dt.IntegerSlot}
+  local data <const> = {5, 3, 10, 42, 17}
+  local instance <const> = Integers(data)
+
+  for index, value in ipairs(instance) do
+    lu.assertEquals(data[index], value)
+    data[index] = nil
+  end
+
+  lu.assertEquals(countTableKeys(data), 0)
+end
+
+function test_arraytable.test_is_instance()
+  local NumbersA <const> = dt.ArrayTable{value_slot=dt.IntegerSlot}
+  local numbers_a <const> = NumbersA{10}
+
+  local NumbersB <const> = dt.ArrayTable{value_slot=dt.IntegerSlot}
+  local numbers_b <const> = NumbersB{10}
+
+  lu.assertTrue(NumbersA:is(numbers_a))
+  lu.assertTrue(NumbersB:is(numbers_b))
+
+  lu.assertFalse(NumbersA:is(numbers_b))
+  lu.assertFalse(NumbersB:is(numbers_a))
+
+  lu.assertFalse(NumbersA:is(NumbersA))
+  lu.assertFalse(NumbersA:is({}))
+end
+
+--[[
+Table Slot Wrapper Unit Tests
+--]]
+
+test_slot_wrapper = {}
+
+function test_slot_wrapper.test_datatable_slot()
+  local Mock <const> = dt.DataTable{name=dt.StringSlot}
+  local instance <const> = Mock{name='alex'}
+
+  local mock_slot <const> = dt.TableSlot(Mock)
+  lu.assertTrue(dt.Slot.is(mock_slot))
+
+  local value, message = mock_slot('validate', instance)
+  lu.assertEquals(value, instance)
+  lu.assertNil(message)
+
+  local value, message = mock_slot('validate', 'obviously-not-a-slot')
+  lu.assertNil(value)
+  lu.assertStrContains(message, "value must be an instance of table type: " .. tostring(Mock))
+
+  -- TODO: formatting
+end
+
+function test_slot_wrapper.test_arraytable_slot()
+  local Mock <const> = dt.ArrayTable{}
+  local instance <const> = Mock{1, 2, 3}
+
+  local mock_slot <const> = dt.TableSlot(Mock)
+  lu.assertTrue(dt.Slot.is(mock_slot))
+
+  local value, message = mock_slot('validate', instance)
+  lu.assertEquals(value, instance)
+  lu.assertNil(message)
+
+  local value, message = mock_slot('validate', 'obviously-not-a-slot')
+  lu.assertNil(value)
+  lu.assertStrContains(message, "value must be an instance of table type: " .. tostring(Mock))
+
+  -- TODO: formatting
+end
+
+-- TODO: test validation for table slot wrapper
+
+--[[
 Module Interface
 --]]
 
@@ -640,4 +891,7 @@ return {
   test_slot=test_slot,
   test_datatable_type=test_datatable_type,
   test_datatable=test_datatable,
+  test_arraytable_type=test_arraytable_type,
+  test_arraytable=test_arraytable,
+  test_slot_wrapper=test_slot_wrapper,
 }
