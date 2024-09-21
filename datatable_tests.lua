@@ -625,6 +625,9 @@ function test_arraytable.test_custom_slot()
   )
 end
 
+-- TODO: arraytable indices must be contiguous
+-- TODO: arraytable table.insert(), table.remove(), etc?
+
 function test_arraytable.test_frozen()
   -- arraytable with isntances that are always frozen
   local FrozenIntegers <const> = dt.ArrayTable{value_slot=dt.IntegerSlot, freeze_instances=true}
@@ -681,6 +684,123 @@ function test_arraytable.test_frozen()
     3,
     100
   )
+end
+
+function test_arraytable.test_freezing_nested()
+  local Integers <const> = dt.ArrayTable{value_slot=dt.IntegerSlot}
+  local Points <const> = dt.ArrayTable{value_slot=dt.ArrayTableSlot(Integers)}
+
+  local instance <const> = Points{
+    Integers{1, 2, 3},
+    Integers{4, 5, 6}
+  }
+
+  instance[1] = Integers{7, 8, 9}
+  instance[2][1] = 10
+
+  local returned_instance <const> = Points:freeze(instance)
+  lu.assertEquals(returned_instance, instance)
+
+  lu.assertErrorMsgContains(
+    "ArrayTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance,
+    1,
+    Integers{}
+  )
+
+  lu.assertErrorMsgContains(
+    "ArrayTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance[1],
+    1,
+    100
+  )
+
+  lu.assertErrorMsgContains(
+    "ArrayTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance[2],
+    1,
+    100
+  )
+end
+
+function test_arraytable.test_validator()
+  -- always validate on arraytable instance mutation
+  -- TODO: use flag to toggle this behavior
+  local EvenIntegers <const> = dt.ArrayTable{
+    value_slot=dt.IntegerSlot,
+    validator=(function (data)
+      for _, value in ipairs(data) do
+        if value % 2 ~= 0 then
+          return "Values must be even integers"
+        end
+      end
+    end)
+  }
+
+  local instance <const> = EvenIntegers{2, 4, 6}
+  instance[1] = 10
+  instance[2] = 12
+
+  lu.assertErrorMsgContains(
+    "Values must be even integers",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance,
+    4,
+    3
+  )
+
+  lu.assertErrorMsgContains(
+    "Values must be even integers",
+    EvenIntegers,
+    {7, 8}
+  )
+
+  -- TODO: validate arraytable instance on demand
+  -- XXX: not necessary if we always validate on mutation
+
+  -- TODO: validate on freeze
+  -- XXX: not necessary if we always validate on mutation
+end
+
+function test_arraytable.test_enumeration()
+  local Integers <const> = dt.ArrayTable{value_slot=dt.IntegerSlot}
+  local data <const> = {5, 3, 10, 42, 17}
+  local instance <const> = Integers(data)
+
+  for index, value in ipairs(instance) do
+    lu.assertEquals(data[index], value)
+    data[index] = nil
+  end
+
+  lu.assertEquals(countTableKeys(data), 0)
+end
+
+function test_arraytable.test_is_instance()
+  local NumbersA <const> = dt.ArrayTable{value_slot=dt.IntegerSlot}
+  local numbers_a <const> = NumbersA{10}
+
+  local NumbersB <const> = dt.ArrayTable{value_slot=dt.IntegerSlot}
+  local numbers_b <const> = NumbersB{10}
+
+  lu.assertTrue(NumbersA:is(numbers_a))
+  lu.assertTrue(NumbersB:is(numbers_b))
+
+  lu.assertFalse(NumbersA:is(numbers_b))
+  lu.assertFalse(NumbersB:is(numbers_a))
+
+  lu.assertFalse(NumbersA:is(NumbersA))
+  lu.assertFalse(NumbersA:is({}))
 end
 
 --[[

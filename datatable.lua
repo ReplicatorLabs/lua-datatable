@@ -633,6 +633,12 @@ local arraytable_type_internal_metatable <const> = {
       error("ArrayTable indices must be contiguous")
     end
 
+    local message <const> = private.validator(initial_data)
+    if message ~= nil then
+      assert(type(message) == 'string', "ArrayTable validator function must return a string message")
+      error("ArrayTable instance data is not valid: " .. message)
+    end
+
     local flags <const> = flag_data or {}
     if type(flags) ~= 'table' then
       error("ArrayTable instance flags must be a table")
