@@ -562,7 +562,7 @@ function test_arraytable.test_lifecycle()
   local initial_count = countTableKeys(dt.arraytable_instance_private)
 
   local Mock <const> = dt.ArrayTable{}
-  local instance = Mock{1, 2, 3}
+  local instance = Mock{}
   lu.assertEquals(countTableKeys(dt.arraytable_instance_private), initial_count + 1)
 
   instance = nil
@@ -574,7 +574,7 @@ function test_arraytable.test_custom_slot()
   local PersonAges <const> = dt.ArrayTable{
     value_slot=dt.Slot(function (value)
       if type(value) ~= 'number' or value <= 0 then
-        return nil, "custom_age_slot_error"
+        return nil, "custom_value_slot_error"
       end
 
       return value
@@ -590,7 +590,7 @@ function test_arraytable.test_custom_slot()
   lu.assertEquals(ages[1], 29)
 
   lu.assertErrorMsgContains(
-    "custom_age_slot_error",
+    "custom_value_slot_error",
     function (i, k, v)
       i[k] = v
     end,
@@ -824,10 +824,10 @@ end
 
 function test_arraytable.test_is_instance()
   local NumbersA <const> = dt.ArrayTable{value_slot=dt.IntegerSlot}
-  local numbers_a <const> = NumbersA{10}
+  local numbers_a <const> = NumbersA{}
 
   local NumbersB <const> = dt.ArrayTable{value_slot=dt.IntegerSlot}
-  local numbers_b <const> = NumbersB{10}
+  local numbers_b <const> = NumbersB{}
 
   lu.assertTrue(NumbersA:is(numbers_a))
   lu.assertTrue(NumbersB:is(numbers_b))
@@ -965,6 +965,24 @@ end
 
 function test_slot_wrapper.test_arraytable_slot()
   local Mock <const> = dt.ArrayTable{}
+  local instance <const> = Mock{}
+
+  local mock_slot <const> = dt.TableSlot(Mock)
+  lu.assertTrue(dt.Slot.is(mock_slot))
+
+  local value, message = mock_slot('validate', instance)
+  lu.assertEquals(value, instance)
+  lu.assertNil(message)
+
+  local value, message = mock_slot('validate', 'obviously-not-a-slot')
+  lu.assertNil(value)
+  lu.assertStrContains(message, "value must be an instance of table type: " .. tostring(Mock))
+
+  -- TODO: formatting
+end
+
+function test_slot_wrapper.test_maptable_slot()
+  local Mock <const> = dt.MapTable{}
   local instance <const> = Mock{1, 2, 3}
 
   local mock_slot <const> = dt.TableSlot(Mock)
