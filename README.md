@@ -60,18 +60,11 @@ When creating a DataTable type you can use the following built-in slots:
 * `NumberSlot`: must be a number (via `type()`)
 * `IntegerSlot`: must be an integer (via `math.type()`)
 * `FloatSlot`: must be a float (via `math.type()`)
-* `TableSlot`: must be a table (via `type()`)
-
-If you need to validate complex array or map tables you can use the following
-factory functions:
-
-* `create_array_table_slot{...}`: create a Slot to validate an array table with given constraints
-* `create_map_table_slot{...}`: create a Slot to validate a map table with given constraints
 
 The following convenience wrappers are provided:
 
 * `Optional(internal_slot)`: validates values using the internal slot but also allows `nil`
-* `DataTableSlot(datatable_type)`: values must be an instance of the given DataTable type
+* `TableSlot(table_type)`: values must be an instance of the given table type
 
 You can also create custom slots with validator and, optionally, formatter
 functions as seen in the example above.
@@ -130,6 +123,7 @@ Planned:
 
 Open to consideration:
 
+* [ ] Support for DataTable instance value equality testing.
 * [ ] LuaJIT support.
   * [ ] Integration tests.
 * [ ] Lua 5.3 support.
@@ -138,7 +132,6 @@ Open to consideration:
   * [ ] Integration tests.
 * [ ] Lua 5.1 support.
   * [ ] Integration tests.
-* [ ] Support for DataTable instance value equality testing.
 
 ## References
 

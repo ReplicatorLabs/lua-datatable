@@ -503,20 +503,20 @@ function test_datatable.test_data_pairs_enumeration()
 end
 
 function test_datatable.test_is_instance()
-  local CountA <const> = dt.DataTable{count=dt.IntegerSlot}
-  local count_a <const> = CountA{count=10}
+  local MockA <const> = dt.DataTable{count=dt.IntegerSlot}
+  local instance_a <const> = MockA{count=0}
 
-  local CountB <const> = dt.DataTable{count=dt.IntegerSlot}
-  local count_b <const> = CountB{count=10}
+  local MockB <const> = dt.DataTable{count=dt.IntegerSlot}
+  local instance_b <const> = MockB{count=0}
 
-  lu.assertTrue(CountA:is(count_a))
-  lu.assertTrue(CountB:is(count_b))
+  lu.assertTrue(MockA:is(instance_a))
+  lu.assertTrue(MockB:is(instance_b))
 
-  lu.assertFalse(CountA:is(count_b))
-  lu.assertFalse(CountB:is(count_a))
+  lu.assertFalse(MockA:is(instance_b))
+  lu.assertFalse(MockB:is(instance_a))
 
-  lu.assertFalse(CountA:is(CountA))
-  lu.assertFalse(CountA:is({}))
+  lu.assertFalse(MockA:is(MockA))
+  lu.assertFalse(MockA:is({}))
 end
 
 --[[
@@ -562,7 +562,7 @@ function test_arraytable.test_lifecycle()
   local initial_count = countTableKeys(dt.arraytable_instance_private)
 
   local Mock <const> = dt.ArrayTable{}
-  local instance = Mock{1, 2, 3}
+  local instance = Mock{}
   lu.assertEquals(countTableKeys(dt.arraytable_instance_private), initial_count + 1)
 
   instance = nil
@@ -574,7 +574,7 @@ function test_arraytable.test_custom_slot()
   local PersonAges <const> = dt.ArrayTable{
     value_slot=dt.Slot(function (value)
       if type(value) ~= 'number' or value <= 0 then
-        return nil, "custom_age_slot_error"
+        return nil, "custom_value_slot_error"
       end
 
       return value
@@ -590,7 +590,7 @@ function test_arraytable.test_custom_slot()
   lu.assertEquals(ages[1], 29)
 
   lu.assertErrorMsgContains(
-    "custom_age_slot_error",
+    "custom_value_slot_error",
     function (i, k, v)
       i[k] = v
     end,
@@ -823,20 +823,246 @@ function test_arraytable.test_enumeration()
 end
 
 function test_arraytable.test_is_instance()
-  local NumbersA <const> = dt.ArrayTable{value_slot=dt.IntegerSlot}
-  local numbers_a <const> = NumbersA{10}
+  local MockA <const> = dt.ArrayTable{}
+  local instance_a <const> = MockA{}
 
-  local NumbersB <const> = dt.ArrayTable{value_slot=dt.IntegerSlot}
-  local numbers_b <const> = NumbersB{10}
+  local MockB <const> = dt.ArrayTable{}
+  local instance_b <const> = MockB{}
 
-  lu.assertTrue(NumbersA:is(numbers_a))
-  lu.assertTrue(NumbersB:is(numbers_b))
+  lu.assertTrue(MockA:is(instance_a))
+  lu.assertTrue(MockB:is(instance_b))
 
-  lu.assertFalse(NumbersA:is(numbers_b))
-  lu.assertFalse(NumbersB:is(numbers_a))
+  lu.assertFalse(MockA:is(instance_b))
+  lu.assertFalse(MockB:is(instance_a))
 
-  lu.assertFalse(NumbersA:is(NumbersA))
-  lu.assertFalse(NumbersA:is({}))
+  lu.assertFalse(MockA:is(MockA))
+  lu.assertFalse(MockA:is({}))
+end
+
+--[[
+MapTable Type Unit Tests
+--]]
+
+test_maptable_type = {}
+
+function test_maptable_type.test_lifecycle()
+  collectgarbage('collect')
+  local initial_count = countTableKeys(dt.maptable_type_private)
+
+  local instance = dt.MapTable{}
+  lu.assertEquals(countTableKeys(dt.maptable_type_private), initial_count + 1)
+
+  instance = nil
+  collectgarbage('collect')
+  lu.assertEquals(countTableKeys(dt.maptable_type_private), initial_count)
+end
+
+-- XXX: custom slots
+-- XXX: default slots
+
+function test_maptable_type.test_frozen()
+  local MutableMap <const> = dt.MapTable{}
+  lu.assertFalse(MutableMap.freeze_instances)
+
+  local FrozenMap <const> = dt.MapTable{freeze_instances=true}
+  lu.assertTrue(FrozenMap.freeze_instances)
+end
+
+function test_datatable_type.test_is_instance()
+  local instance <const> = dt.MapTable{}
+  lu.assertTrue(dt.MapTable.is(instance))
+  lu.assertFalse(dt.MapTable.is({}))
+end
+
+--[[
+MapTable Instance Unit Tests
+--]]
+
+test_maptable = {}
+
+function test_maptable.test_lifecycle()
+  collectgarbage('collect')
+  local initial_count = countTableKeys(dt.maptable_instance_private)
+
+  local Mock <const> = dt.MapTable{}
+  local instance = Mock{}
+  lu.assertEquals(countTableKeys(dt.maptable_instance_private), initial_count + 1)
+
+  instance = nil
+  collectgarbage('collect')
+  lu.assertEquals(countTableKeys(dt.maptable_instance_private), initial_count)
+end
+
+function test_maptable.test_custom_slots()
+  local CustomMap <const> = dt.MapTable{
+    key_slot=dt.Slot(function (value)
+      if type(value) ~= 'string' or #value == 0 then
+        return nil, "custom_key_slot_error"
+      end
+
+      return value
+    end),
+    value_slot=dt.Slot(function (value)
+      if type(value) ~= 'number' or value <= 0 then
+        return nil, "custom_value_slot_error"
+      end
+
+      return value
+    end)
+  }
+
+  local instance <const> = CustomMap{['foo']=10, ['bar']=20}
+  lu.assertEquals(instance['foo'], 10)
+  lu.assertEquals(instance['bar'], 20)
+
+  instance['foo'] = 30
+  lu.assertEquals(instance['foo'], 30)
+
+  lu.assertErrorMsgContains(
+    "custom_key_slot_error",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance,
+    '',
+    100
+  )
+
+  lu.assertErrorMsgContains(
+    "custom_value_slot_error",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance,
+    'test',
+    -50
+  )
+end
+
+-- TODO: test_frozen
+
+function test_maptable.test_freezing_nested()
+  local Bookmarks <const> = dt.MapTable{
+    key_slot=dt.StringSlot,
+    value_slot=dt.StringSlot
+  }
+
+  local UserBookmarks <const> = dt.MapTable{
+    key_slot=dt.StringSlot,
+    value_slot=dt.TableSlot(Bookmarks)
+  }
+
+  local instance <const> = UserBookmarks{
+    ['bob']=Bookmarks{['search']='duckduckgo.com'},
+    ['alice']=Bookmarks{['search']='kagi.com'},
+  }
+
+  instance.bob.home = 'example.com'
+  instance.bill = Bookmarks{['search']='bing.com'}
+
+  local returned_instance <const> = UserBookmarks:freeze(instance)
+  lu.assertEquals(returned_instance, instance)
+
+  lu.assertErrorMsgContains(
+    "MapTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance,
+    'bob',
+    UserBookmarks{}
+  )
+
+  lu.assertErrorMsgContains(
+    "MapTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance.bob,
+    'search',
+    'google.com'
+  )
+
+  lu.assertErrorMsgContains(
+    "MapTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance.alice,
+    'search',
+    'google.com'
+  )
+end
+
+function test_maptable.test_validator()
+  -- always validate on maptable instance mutation
+  -- TODO: use flag to toggle this behavior
+  local Bookmarks <const> = dt.MapTable{
+    key_slot=dt.StringSlot,
+    value_slot=dt.StringSlot,
+    validator=(function (data)
+      if countTableKeys(data) > 2 then
+        return "Bookmarks table size too large"
+      end
+    end)
+  }
+
+  local instance <const> = Bookmarks{
+    ['foo']='example.com',
+    ['bar']='example.com',
+  }
+
+  lu.assertErrorMsgContains(
+    "Bookmarks table size too large",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance,
+    'baz',
+    'example.com'
+  )
+
+  -- TODO: validate maptable instance on demand
+  -- TODO: validate maptable instance on freeze
+end
+
+function test_maptable.test_data_pairs_enumeration()
+  local NamedNumbers <const> = dt.MapTable{
+    key_slot=dt.StringSlot,
+    value_slot=dt.IntegerSlot,
+  }
+
+  local data <const> = {
+    ['base_binary']=2,
+    ['answer_to_everything']=42,
+    ['maximum_percent']=100,
+  }
+
+  local named_numbers <const> = NamedNumbers(data)
+
+  for key, value in pairs(named_numbers) do
+    lu.assertEquals(data[key], value)
+    data[key] = nil
+  end
+
+  lu.assertEquals(countTableKeys(data), 0)
+end
+
+function test_maptable.test_is_instance()
+  local MockA <const> = dt.MapTable{}
+  local instance_a <const> = MockA{}
+
+  local MockB <const> = dt.MapTable{}
+  local instance_b <const> = MockB{}
+
+  lu.assertTrue(MockA:is(instance_a))
+  lu.assertTrue(MockB:is(instance_b))
+
+  lu.assertFalse(MockA:is(instance_b))
+  lu.assertFalse(MockB:is(instance_a))
+
+  lu.assertFalse(MockA:is(MockA))
+  lu.assertFalse(MockA:is({}))
 end
 
 --[[
@@ -865,6 +1091,24 @@ end
 
 function test_slot_wrapper.test_arraytable_slot()
   local Mock <const> = dt.ArrayTable{}
+  local instance <const> = Mock{}
+
+  local mock_slot <const> = dt.TableSlot(Mock)
+  lu.assertTrue(dt.Slot.is(mock_slot))
+
+  local value, message = mock_slot('validate', instance)
+  lu.assertEquals(value, instance)
+  lu.assertNil(message)
+
+  local value, message = mock_slot('validate', 'obviously-not-a-slot')
+  lu.assertNil(value)
+  lu.assertStrContains(message, "value must be an instance of table type: " .. tostring(Mock))
+
+  -- TODO: formatting
+end
+
+function test_slot_wrapper.test_maptable_slot()
+  local Mock <const> = dt.MapTable{}
   local instance <const> = Mock{1, 2, 3}
 
   local mock_slot <const> = dt.TableSlot(Mock)
@@ -893,5 +1137,7 @@ return {
   test_datatable=test_datatable,
   test_arraytable_type=test_arraytable_type,
   test_arraytable=test_arraytable,
+  test_maptable_type=test_maptable_type,
+  test_maptable=test_maptable,
   test_slot_wrapper=test_slot_wrapper,
 }
