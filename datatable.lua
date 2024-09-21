@@ -1195,7 +1195,7 @@ end
 
 local maptable_type_freeze <const> = function (self, instance)
   local instance_private <const>, _ = maptable_instance_check(instance)
-  assert(instance_private.arraytable == self, "MapTable type method used with incompatible type")
+  assert(instance_private.maptable == self, "MapTable type method used with incompatible type")
 
   -- use shared generic implementation
   generic_table_type_freeze(instance)

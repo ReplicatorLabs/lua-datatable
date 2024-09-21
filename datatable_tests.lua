@@ -940,7 +940,60 @@ function test_maptable.test_custom_slots()
 end
 
 -- TODO: test_frozen
--- TODO: test_freezing_nested
+
+function test_maptable.test_freezing_nested()
+  local Bookmarks <const> = dt.MapTable{
+    key_slot=dt.StringSlot,
+    value_slot=dt.StringSlot
+  }
+
+  local UserBookmarks <const> = dt.MapTable{
+    key_slot=dt.StringSlot,
+    value_slot=dt.TableSlot(Bookmarks)
+  }
+
+  local instance <const> = UserBookmarks{
+    ['bob']=Bookmarks{['search']='duckduckgo.com'},
+    ['alice']=Bookmarks{['search']='kagi.com'},
+  }
+
+  instance.bob.home = 'example.com'
+  instance.bill = Bookmarks{['search']='bing.com'}
+
+  local returned_instance <const> = UserBookmarks:freeze(instance)
+  lu.assertEquals(returned_instance, instance)
+
+  lu.assertErrorMsgContains(
+    "MapTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance,
+    'bob',
+    UserBookmarks{}
+  )
+
+  lu.assertErrorMsgContains(
+    "MapTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance.bob,
+    'search',
+    'google.com'
+  )
+
+  lu.assertErrorMsgContains(
+    "MapTable instance is frozen",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance.alice,
+    'search',
+    'google.com'
+  )
+end
+
 -- TODO: test_validator
 
 function test_maptable.test_data_pairs_enumeration()
