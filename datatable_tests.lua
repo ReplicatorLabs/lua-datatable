@@ -675,8 +675,6 @@ function test_arraytable.test_indices()
   )
 end
 
--- TODO: arraytable table.insert(), table.remove(), etc?
-
 function test_arraytable.test_frozen()
   -- arraytable with isntances that are always frozen
   local FrozenIntegers <const> = dt.ArrayTable{value_slot=dt.IntegerSlot, freeze_instances=true}
