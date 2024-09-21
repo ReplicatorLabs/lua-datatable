@@ -415,7 +415,7 @@ local DataTable <const> = setmetatable({
 --[[
 ArrayTable
 
-A table with contiguous integer keys and a slot enforced values.
+A table with contiguous positive integer keys pointing to slot enforced values.
 --]]
 
 local arraytable_type_metatable <const> = {}
@@ -679,6 +679,225 @@ local ArrayTable <const> = setmetatable({
 })
 
 --[[
+MapTable
+
+A table with slot enforced keys pointing to slot enforced values.
+--]]
+
+local maptable_type_metatable <const> = {}
+local maptable_type_private <const> = setmetatable({}, {__mode='k'})
+
+local maptable_instance_metatable <const> = {}
+local maptable_instance_private <const> = setmetatable({}, {__mode='k'})
+
+-- instance implementation
+local maptable_instance_check <const> = function (value)
+  local instance_private <const> = assert(
+    maptable_instance_private[value],
+    "MapTable instance not recognized: " .. tostring(value)
+  )
+
+  local maptable_private <const> = assert(
+    maptable_type_private[instance_private.maptable],
+    "MapTable type not recognized: " .. tostring(value)
+  )
+
+  return instance_private, maptable_private
+end
+
+local maptable_instance_internal_metatable <const> = {
+  __name = 'MapTable',
+  __metatable = maptable_instance_metatable,
+  __index = function (self, key)
+    local private <const>, _ = maptable_instance_check(self)
+
+    return private.data[key]
+  end,
+  __newindex = function (self, key, value)
+    local private <const>, maptable_private <const> = maptable_instance_check(self)
+    assert(not private.frozen, "MapTable instance is frozen")
+
+    local value, message = maptable_private.key_slot('validate', key)
+    if message then
+      error("MapTable key is invalid: " .. message)
+    end
+
+    if value ~= nil then
+      local value, message = arraytable_private.value_slot('validate', value)
+      if message then
+        error("MapTable value is invalid: " .. message)
+      end
+    end
+
+    -- TODO: use a flag to toggle whether we should always run the arraytable
+    -- validator or not, we may want to delay that until later
+
+    local previous_value <const> = private.data[key]
+    private.data[key] = value
+
+    -- validate new map data
+    local message = maptable_private.validator(private.data)
+    if message ~= nil then
+      private.data[key] = previous_value
+      assert(type(message) == 'string', "MapTable validator function must return a string message")
+      error("MapTable instance data is not valid: " .. message)
+    end
+  end,
+  __pairs = function (self)
+    local private <const>, _ = maptable_instance_check(self)
+
+    -- TODO
+  end,
+  __gc = function (self)
+    maptable_instance_private[self] = nil
+  end
+}
+
+-- type implementation
+local maptable_type_is <const> = function (self, value)
+  if getmetatable(value) ~= maptable_instance_metatable then
+    return false
+  end
+
+  local instance_private <const>, _ = maptable_instance_check(value)
+  return (instance_private.maptable == self)
+end
+
+local maptable_type_is_frozen <const> = function (self, instance)
+  local instance_private <const>, _ = maptable_instance_check(instance)
+  assert(instance_private.maptable == self, "MapTable type method used with incompatible type")
+
+  return instance_private.frozen
+end
+
+local maptable_type_class_methods <const> = {
+  ['is']=maptable_type_is,
+  ['is_frozen']=maptable_type_is_frozen,
+}
+
+local maptable_type_internal_metatable <const> = {
+  __name = 'MapTableType',
+  __metatable = maptable_type_metatable,
+  __index = function (self, key)
+    local private <const> = assert(
+      maptable_type_private[self],
+      "MapTable type not recognized: " .. tostring(self)
+    )
+
+    -- key slot
+    if key == 'key_slot' then
+      return private.key_slot
+    -- value slot
+    elseif key == 'value_slot' then
+      return private.value_slot
+    -- frozen flag
+    elseif key == 'freeze_instances' then
+      return private.freeze_instances
+    -- class methods
+    elseif maptable_type_class_methods[key] ~= nil then
+      return maptable_type_class_methods[key]
+    -- unknown key
+    else
+      return nil
+    end
+  end,
+  __newindex = function (_, _, _)
+    error("MapTable definition cannot be modified")
+  end,
+  __call = function (self, value_data, flag_data)
+    local private <const> = assert(
+      maptable_type_private[self],
+      "MapTable type not recognized: " .. tostring(self)
+    )
+
+    local initial_data <const> = {}
+
+    -- TODO
+
+    local message <const> = private.validator(initial_data)
+    if message ~= nil then
+      assert(type(message) == 'string', "MapTable validator function must return a string message")
+      error("MapTable instance data is not valid: " .. message)
+    end
+
+    local flags <const> = flag_data or {}
+    if type(flags) ~= 'table' then
+      error("MapTable instance flags must be a table")
+    end
+
+    local frozen <const> = flags['frozen']
+    if frozen ~= nil then
+      if type(frozen) ~= 'boolean' then
+        error("MapTable instance frozen flag must be a boolean")
+      end
+
+      if private.freeze_instances and not frozen then
+        error("MapTable type freeze_instances requires instances to also be frozen")
+      end
+    end
+
+    local instance_frozen <const> = (frozen or private.freeze_instances)
+    local instance <const> = {}
+    maptable_instance_private[instance] = {
+      maptable=self,
+      data=initial_data,
+      frozen=instance_frozen
+    }
+
+    return setmetatable(instance, maptable_instance_internal_metatable)
+  end,
+  __gc = function (self)
+    maptable_type_private[self] = nil
+  end
+}
+
+-- public interface
+local MapTable <const> = setmetatable({
+  create = function (config_data)
+    if type(config_data) ~= 'table' then
+      error("MapTable config must be a table")
+    end
+
+    local key_slot <const> = (config_data['key_slot'] or AnySlot)
+    if not Slot.is(key_slot) then
+      error("MapTable key_slot must be a Slot instance")
+    end
+
+    local value_slot <const> = (config_data['value_slot'] or AnySlot)
+    if not Slot.is(value_slot) then
+      error("MapTable value_slot must be a Slot instance")
+    end
+
+    local freeze_instances <const> = (config_data['freeze_instances'] or false)
+    if type(freeze_instances) ~= 'boolean' then
+      error("MapTable freeze_instances flag must be a boolean")
+    end
+
+    local validator <const> = (config_data['validator'] or (function (_) return end))
+    if type(validator) ~= 'function' then
+      error("MapTable validator flag must be a function")
+    end
+
+    local instance <const> = {}
+    maptable_type_private[instance] = {
+      key_slot=key_slot,
+      value_slot=value_slot,
+      freeze_instances=freeze_instances,
+      validator=validator,
+    }
+
+    return setmetatable(instance, maptable_type_internal_metatable)
+  end,
+  is = function (value)
+    return (getmetatable(value) == maptable_type_metatable)
+  end
+}, {
+  __call = function (self, ...)
+    return self.create(...)
+  end
+})
+
+--[[
 Generic Internal Helpers
 --]]
 
@@ -686,7 +905,8 @@ local generic_table_is_instance <const> = function (value)
   local mt <const> = getmetatable(value)
   return (
     mt == datatable_instance_metatable or
-    mt == arraytable_instance_metatable
+    mt == arraytable_instance_metatable or
+    mt == maptable_instance_metatable
   )
 end
 
@@ -694,7 +914,8 @@ local generic_table_is_type <const> = function (value)
   local mt <const> = getmetatable(value)
   return (
     mt == datatable_type_metatable or
-    mt == arraytable_type_metatable
+    mt == arraytable_type_metatable or
+    mt == maptable_type_metatable
   )
 end
 
@@ -702,8 +923,9 @@ end
 -- note: this only checks one level deep in order to avoid searching
 local generic_table_nested_instances = function (instance)
   local values <const> = {}
+  local mt <const> = getmetatable(instance)
 
-  if getmetatable(instance) == datatable_instance_metatable then
+  if mt == datatable_instance_metatable then
     local private <const> = assert(datatable_instance_private[instance])
 
     for _, value in pairs(private.data) do
@@ -711,10 +933,22 @@ local generic_table_nested_instances = function (instance)
         table.insert(values, value)
       end
     end
-  elseif getmetatable(instance) == arraytable_instance_metatable then
+  elseif mt == arraytable_instance_metatable then
     local private <const> = assert(arraytable_instance_private[instance])
 
     for _, value in ipairs(private.data) do
+      if generic_table_is_instance(value) then
+        table.insert(values, value)
+      end
+    end
+  elseif mt == maptable_instance_metatable then
+    local private <const> = assert(maptable_instance_private[instance])
+
+    for key, value in pairs(private.data) do
+      if generic_table_is_instance(key) then
+        table.insert(values, key)
+      end
+
       if generic_table_is_instance(value) then
         table.insert(values, value)
       end
@@ -780,6 +1014,16 @@ local generic_table_type_validate <const> = function (root_instance, recurse)
         assert(type(message) == 'string', "ArrayTable validator function must return a string message")
         return false, message
       end
+    elseif mt == maptable_instance_metatable then
+      local instance_private <const> = assert(maptable_instance_private[instance])
+      local maptable_private <const> = assert(maptable_type_private[instance_private.maptable])
+
+      local message <const> = maptable_private.validator(instance_private.data)
+      if message ~= nil then
+        -- TODO: improve the error to specify which nested instance failed validation
+        assert(type(message) == 'string', "MapTable validator function must return a string message")
+        return false, message
+      end
     else
       error("invalid table instance type")
     end
@@ -819,8 +1063,16 @@ local arraytable_type_validate <const> = function (self, instance)
   return generic_table_type_validate(instance)
 end
 
+local maptable_type_validate <const> = function (self, instance)
+  local instance_private <const>, _ = maptable_instance_check(instance)
+  assert(instance_private.maptable == self, "MapTable type method used with incompatible type")
+
+  return generic_table_type_validate(instance)
+end
+
 datatable_type_class_methods['validate'] = datatable_type_validate
 arraytable_type_class_methods['validate'] = arraytable_type_validate
+maptable_type_class_methods['validate'] = maptable_type_validate
 
 --[[
 Table Freezing
@@ -854,6 +1106,18 @@ local generic_table_type_freeze <const> = function (root_instance)
       end
 
       instance_private.frozen = true
+    elseif mt == maptable_instance_metatable then
+      local instance_private <const> = assert(maptable_instance_private[instance])
+      local maptable_private <const> = assert(maptable_type_private[instance_private.maptable])
+
+      local message <const> = maptable_private.validator(instance_private.data)
+      if message ~= nil then
+        -- TODO: improve the error to specify which nested instance failed validation
+        assert(type(message) == 'string', "MapTable validator function must return a string message")
+        error("MapTable instance data is not valid: " .. message)
+      end
+
+      instance_private.frozen = true
     else
       error("invalid table instance type")
     end
@@ -879,7 +1143,7 @@ local datatable_type_freeze <const> = function (self, instance)
   -- use shared generic implementation
   generic_table_type_freeze(instance)
 
-  -- return the datatable instance to make chaining and returning it easy
+  -- return the table instance to make chaining and returning it easy
   return instance
 end
 
@@ -890,12 +1154,24 @@ local arraytable_type_freeze <const> = function (self, instance)
   -- use shared generic implementation
   generic_table_type_freeze(instance)
 
-  -- return the datatable instance to make chaining and returning it easy
+  -- return the table instance to make chaining and returning it easy
+  return instance
+end
+
+local maptable_type_freeze <const> = function (self, instance)
+  local instance_private <const>, _ = maptable_instance_check(instance)
+  assert(instance_private.arraytable == self, "MapTable type method used with incompatible type")
+
+  -- use shared generic implementation
+  generic_table_type_freeze(instance)
+
+  -- return the table instance to make chaining and returning it easy
   return instance
 end
 
 datatable_type_class_methods['freeze'] = datatable_type_freeze
 arraytable_type_class_methods['freeze'] = arraytable_type_freeze
+maptable_type_class_methods['freeze'] = maptable_type_freeze
 
 --[[
 Module Interface
@@ -916,11 +1192,10 @@ local module = {
   -- slot wrappers
   Optional=Optional,
 
-  -- datatable
+  -- tables
   DataTable=DataTable,
-
-  -- arraytable
   ArrayTable=ArrayTable,
+  MapTable=MapTable,
 
   -- table slot wrappers
   TableSlot=TableSlot,
@@ -945,6 +1220,11 @@ if os.getenv('LUA_DATATABLE_LEAK_INTERNALS') == 'TRUE' then
   module['arraytable_type_private'] = arraytable_type_private
   module['arraytable_instance_metatable'] = arraytable_instance_metatable
   module['arraytable_instance_private'] = arraytable_instance_private
+
+  module['maptable_type_metatable'] = maptable_type_metatable
+  module['maptable_type_private'] = maptable_type_private
+  module['maptable_instance_metatable'] = maptable_instance_metatable
+  module['maptable_instance_private'] = maptable_instance_private
 
   module['generic_table_is_instance'] = generic_table_is_instance
   module['generic_table_is_type'] = generic_table_is_type
