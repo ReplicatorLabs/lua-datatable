@@ -717,13 +717,17 @@ local maptable_instance_internal_metatable <const> = {
     local private <const>, maptable_private <const> = maptable_instance_check(self)
     assert(not private.frozen, "MapTable instance is frozen")
 
-    local value, message = maptable_private.key_slot('validate', key)
+    if key == nil then
+      error("MapTable keys cannot be nil")
+    end
+
+    local key, message = maptable_private.key_slot('validate', key)
     if message then
       error("MapTable key is invalid: " .. message)
     end
 
     if value ~= nil then
-      local value, message = arraytable_private.value_slot('validate', value)
+      local value, message = maptable_private.value_slot('validate', value)
       if message then
         error("MapTable value is invalid: " .. message)
       end
@@ -830,18 +834,22 @@ local maptable_type_internal_metatable <const> = {
     )
 
     local initial_data <const> = {}
-    for key, value in pairs(initial_data) do
-      local valid_key, message = private.key_slot('validate', key)
+    for key, value in pairs(value_data) do
+      if key == nil then
+        error("MapTable keys cannot be nil")
+      end
+
+      local valid_key <const>, message = private.key_slot('validate', key)
       if message then
         error("MapTable key '" .. tostring(key) .. "': " .. message)
       end
 
-      local valid_value, message = private.value_slot('validate', value)
+      local valid_value <const>, message = private.value_slot('validate', value)
       if message then
         error("MapTable value '" .. tostring(value) .. "': " .. message)
       end
 
-      initial_data[key] = value
+      initial_data[valid_key] = valid_value
     end
 
     local message <const> = private.validator(initial_data)

@@ -840,6 +840,106 @@ function test_arraytable.test_is_instance()
 end
 
 --[[
+MapTable Type Unit Tests
+--]]
+
+test_maptable_type = {}
+
+function test_maptable_type.test_lifecycle()
+  collectgarbage('collect')
+  local initial_count = countTableKeys(dt.maptable_type_private)
+
+  local instance = dt.MapTable{}
+  lu.assertEquals(countTableKeys(dt.maptable_type_private), initial_count + 1)
+
+  instance = nil
+  collectgarbage('collect')
+  lu.assertEquals(countTableKeys(dt.maptable_type_private), initial_count)
+end
+
+-- XXX: custom slots
+-- XXX: default slots
+
+function test_maptable_type.test_frozen()
+  local MutableMap <const> = dt.MapTable{}
+  lu.assertFalse(MutableMap.freeze_instances)
+
+  local FrozenMap <const> = dt.MapTable{freeze_instances=true}
+  lu.assertTrue(FrozenMap.freeze_instances)
+end
+
+function test_datatable_type.test_is_instance()
+  local instance <const> = dt.MapTable{}
+  lu.assertTrue(dt.MapTable.is(instance))
+  lu.assertFalse(dt.MapTable.is({}))
+end
+
+--[[
+MapTable Instance Unit Tests
+--]]
+
+test_maptable = {}
+
+function test_maptable.test_lifecycle()
+  collectgarbage('collect')
+  local initial_count = countTableKeys(dt.maptable_instance_private)
+
+  local Mock <const> = dt.MapTable{}
+  local instance = Mock{}
+  lu.assertEquals(countTableKeys(dt.maptable_instance_private), initial_count + 1)
+
+  instance = nil
+  collectgarbage('collect')
+  lu.assertEquals(countTableKeys(dt.maptable_instance_private), initial_count)
+end
+
+function test_maptable.test_custom_slots()
+  local CustomMap <const> = dt.MapTable{
+    key_slot=dt.Slot(function (value)
+      if type(value) ~= 'string' or #value == 0 then
+        return nil, "custom_key_slot_error"
+      end
+
+      return value
+    end),
+    value_slot=dt.Slot(function (value)
+      if type(value) ~= 'number' or value <= 0 then
+        return nil, "custom_value_slot_error"
+      end
+
+      return value
+    end)
+  }
+
+  local instance <const> = CustomMap{['foo']=10, ['bar']=20}
+  lu.assertEquals(instance['foo'], 10)
+  lu.assertEquals(instance['bar'], 20)
+
+  instance['foo'] = 30
+  lu.assertEquals(instance['foo'], 30)
+
+  lu.assertErrorMsgContains(
+    "custom_key_slot_error",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance,
+    '',
+    100
+  )
+
+  lu.assertErrorMsgContains(
+    "custom_value_slot_error",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance,
+    'test',
+    -50
+  )
+end
+
+--[[
 Table Slot Wrapper Unit Tests
 --]]
 
@@ -893,5 +993,7 @@ return {
   test_datatable=test_datatable,
   test_arraytable_type=test_arraytable_type,
   test_arraytable=test_arraytable,
+  test_maptable_type=test_maptable_type,
+  test_maptable=test_maptable,
   test_slot_wrapper=test_slot_wrapper,
 }
