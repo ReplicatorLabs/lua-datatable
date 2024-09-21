@@ -266,23 +266,9 @@ local datatable_type_is_frozen <const> = function (self, instance)
   return instance_private.frozen
 end
 
-local datatable_type_validate <const> = function (self, instance)
-  local instance_private <const>, datatable_private <const> = datatable_instance_check(instance)
-  assert(instance_private.datatable == self, "DataTable type method used with incompatible type")
-
-  local message = datatable_private.validator(instance_private.data)
-  if message ~= nil then
-    assert(type(message) == 'string', "DataTable validator function must return a string message")
-    return false, message
-  end
-
-  return true, nil
-end
-
 local datatable_type_class_methods <const> = {
   ['is']=datatable_type_is,
   ['is_frozen']=datatable_type_is_frozen,
-  ['validate']=datatable_type_validate,
 }
 
 local datatable_type_internal_metatable <const> = {
@@ -566,23 +552,9 @@ local arraytable_type_is_frozen <const> = function (self, instance)
   return instance_private.frozen
 end
 
-local arraytable_type_validate <const> = function (self, instance)
-  local instance_private <const>, arraytable_private <const> = arraytable_instance_check(instance)
-  assert(instance_private.arraytable == self, "ArrayTable type method used with incompatible type")
-
-  local message = arraytable_private.validator(private.data)
-  if message ~= nil then
-    assert(type(message) == 'string', "ArrayTable validator function must return a string message")
-    return false, message
-  end
-
-  return true, nil
-end
-
 local arraytable_type_class_methods <const> = {
   ['is']=arraytable_type_is,
   ['is_frozen']=arraytable_type_is_frozen,
-  ['validate']=arraytable_type_validate,
 }
 
 local arraytable_type_internal_metatable <const> = {
@@ -777,6 +749,76 @@ local generic_table_nested_instances = function (instance)
 end
 
 --[[
+Table Validation
+--]]
+
+local generic_table_type_validate <const> = function (root_instance, recurse)
+  -- freeze the provided instance
+  local function _validate_instance(instance)
+    local mt <const> = getmetatable(instance)
+    if mt == datatable_instance_metatable then
+      local instance_private <const> = assert(datatable_instance_private[instance])
+      local datatable_private <const> = assert(datatable_type_private[instance_private.datatable])
+
+      local message <const> = datatable_private.validator(instance_private.data)
+      if message ~= nil then
+        -- TODO: improve the error to specify which nested instance failed validation
+        assert(type(message) == 'string', "DataTable validator function must return a string message")
+        return false, message
+      end
+    elseif mt == arraytable_instance_metatable then
+      local instance_private <const> = assert(arraytable_instance_private[instance])
+      local arraytable_private <const> = assert(arraytable_type_private[instance_private.arraytable])
+
+      local message <const> = arraytable_private.validator(instance_private.data)
+      if message ~= nil then
+        -- TODO: improve the error to specify which nested instance failed validation
+        assert(type(message) == 'string', "ArrayTable validator function must return a string message")
+        return false, message
+      end
+    else
+      error("invalid table instance type")
+    end
+
+    return true, nil
+  end
+
+  -- use breadth-first search from the root instance to find all nested tables
+  local instances <const> = {root_instance}
+  while #instances > 0 do
+    local instance <const> = table.remove(instances, 1)
+    local valid <const>, message <const> = _validate_instance(instance)
+    if not valid then
+      return false, message
+    end
+
+    local nested_instances <const> = generic_table_nested_instances(instance)
+    for _, nested_instance in ipairs(nested_instances) do
+      table.insert(instances, nested_instance)
+    end
+  end
+
+  return true, nil
+end
+
+local datatable_type_validate <const> = function (self, instance)
+  local instance_private <const>, _ = datatable_instance_check(instance)
+  assert(instance_private.datatable == self, "DataTable type method used with incompatible type")
+
+  return generic_table_type_validate(instance)
+end
+
+local arraytable_type_validate <const> = function (self, instance)
+  local instance_private <const>, _ = arraytable_instance_check(instance)
+  assert(instance_private.arraytable == self, "ArrayTable type method used with incompatible type")
+
+  return generic_table_type_validate(instance)
+end
+
+datatable_type_class_methods['validate'] = datatable_type_validate
+arraytable_type_class_methods['validate'] = arraytable_type_validate
+
+--[[
 Table Freezing
 --]]
 
@@ -785,29 +827,29 @@ local generic_table_type_freeze <const> = function (root_instance)
   local function _freeze_instance(instance)
     local mt <const> = getmetatable(instance)
     if mt == datatable_instance_metatable then
-      local private <const> = assert(datatable_instance_private[instance])
-      local datatable <const> = assert(datatable_type_private[private.datatable])
+      local instance_private <const> = assert(datatable_instance_private[instance])
+      local datatable_private <const> = assert(datatable_type_private[instance_private.datatable])
 
-      local message <const> = datatable.validator(private.data)
+      local message <const> = datatable_private.validator(instance_private.data)
       if message ~= nil then
         -- TODO: improve the error to specify which nested instance failed validation
         assert(type(message) == 'string', "DataTable validator function must return a string message")
         error("DataTable instance data is not valid: " .. message)
       end
 
-      private.frozen = true
+      instance_private.frozen = true
     elseif mt == arraytable_instance_metatable then
-      local private <const> = assert(arraytable_instance_private[instance])
-      local arraytable <const> = assert(arraytable_type_private[private.arraytable])
+      local instance_private <const> = assert(arraytable_instance_private[instance])
+      local arraytable_private <const> = assert(arraytable_type_private[instance_private.arraytable])
 
-      local message <const> = arraytable.validator(private.data)
+      local message <const> = arraytable_private.validator(instance_private.data)
       if message ~= nil then
         -- TODO: improve the error to specify which nested instance failed validation
         assert(type(message) == 'string', "ArrayTable validator function must return a string message")
         error("ArrayTable instance data is not valid: " .. message)
       end
 
-      private.frozen = true
+      instance_private.frozen = true
     else
       error("invalid table instance type")
     end
