@@ -746,7 +746,26 @@ local maptable_instance_internal_metatable <const> = {
   __pairs = function (self)
     local private <const>, _ = maptable_instance_check(self)
 
-    -- TODO
+    -- for loops: https://www.lua.org/manual/5.4/manual.html#3.3.5
+    local function iterate(keys, key) -- state variable, initial or previous control value
+      -- note: not strictly necessary as table.remove({}, 1) and inner[nil]
+      -- both return nil so the loop ends on it's own but this is safer
+      if #keys == 0 then
+        return
+      end
+
+      local key <const> = table.remove(keys, 1)
+      local value <const> = private.data[key]
+      return key, value -- control value, remaining loop values
+    end
+
+    local keys <const> = {}
+    for key, _ in pairs(private.data) do
+      table.insert(keys, key)
+    end
+
+    -- iterator function, state variable, initial control value, closing variable
+    return iterate, keys, keys[1], nil
   end,
   __gc = function (self)
     maptable_instance_private[self] = nil
@@ -811,8 +830,19 @@ local maptable_type_internal_metatable <const> = {
     )
 
     local initial_data <const> = {}
+    for key, value in pairs(initial_data) do
+      local valid_key, message = private.key_slot('validate', key)
+      if message then
+        error("MapTable key '" .. tostring(key) .. "': " .. message)
+      end
 
-    -- TODO
+      local valid_value, message = private.value_slot('validate', value)
+      if message then
+        error("MapTable value '" .. tostring(value) .. "': " .. message)
+      end
+
+      initial_data[key] = value
+    end
 
     local message <const> = private.validator(initial_data)
     if message ~= nil then
