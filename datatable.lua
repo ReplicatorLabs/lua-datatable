@@ -827,16 +827,8 @@ local generic_table_type_freeze <const> = function (root_instance)
 end
 
 local datatable_type_freeze <const> = function (self, instance)
-  local private <const> = assert(
-    datatable_instance_private[instance],
-    "DataTable instance not recognized: " .. tostring(instance)
-  )
-
-  assert(private.datatable == self, "DataTable type method used with incompatible type")
-  local datatable <const> = assert(
-    datatable_type_private[private.datatable],
-    "DataTable type not recognized: " .. tostring(private.datatable)
-  )
+  local instance_private <const>, _ = datatable_instance_check(instance)
+  assert(instance_private.datatable == self, "DataTable type method used with incompatible type")
 
   -- use shared generic implementation
   generic_table_type_freeze(instance)
@@ -846,16 +838,8 @@ local datatable_type_freeze <const> = function (self, instance)
 end
 
 local arraytable_type_freeze <const> = function (self, instance)
-  local private <const> = assert(
-    arraytable_instance_private[instance],
-    "ArrayTable instance not recognized: " .. tostring(instance)
-  )
-
-  assert(private.arraytable == self, "ArrayTable type method used with incompatible type")
-  local arraytable <const> = assert(
-    arraytable_type_private[private.arraytable],
-    "ArrayTable type not recognized: " .. tostring(private.arraytable)
-  )
+  local instance_private <const>, _ = arraytable_instance_check(instance)
+  assert(instance_private.arraytable == self, "ArrayTable type method used with incompatible type")
 
   -- use shared generic implementation
   generic_table_type_freeze(instance)
