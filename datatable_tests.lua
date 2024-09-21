@@ -637,6 +637,20 @@ function test_arraytable.test_indices()
     -5,
     100
   )
+
+  table.insert(instance, 40)
+  table.insert(instance, 50)
+  lu.assertEquals(#instance, 3)
+
+  lu.assertErrorMsgContains(
+    "ArrayTable indices must be contiguous",
+    function (i, k, v)
+      i[k] = v
+    end,
+    instance,
+    2,
+    nil
+  )
 end
 
 function test_arraytable.test_frozen()
