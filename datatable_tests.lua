@@ -15,10 +15,9 @@ local function countTableKeys(value)
 end
 
 --[[
-Unit Tests
+Slot Unit Tests
 --]]
 
--- slot tests
 test_slot = {}
 
 function test_slot.test_lifecycle()
@@ -63,7 +62,10 @@ function test_slot.test_optional_wrapper()
   lu.assertEquals(format_inner, format_outer)
 end
 
--- datatable type tests
+--[[
+DataTable Type Unit Tests
+--]]
+
 test_datatable_type = {}
 
 function test_datatable_type.test_lifecycle()
@@ -148,7 +150,10 @@ function test_datatable_type.test_is_instance()
   lu.assertFalse(dt.DataTable.is({}))
 end
 
--- datatable instance tests
+--[[
+DataTable Instance Unit Tests
+--]]
+
 test_datatable = {}
 
 function test_datatable.test_lifecycle()
@@ -514,7 +519,10 @@ function test_datatable.test_is_instance()
   lu.assertFalse(CountA:is({}))
 end
 
--- arraytable type tests
+--[[
+ArrayTable Type Unit Tests
+--]]
+
 test_arraytable_type = {}
 
 function test_arraytable_type.test_lifecycle()
@@ -543,7 +551,10 @@ function test_arraytable_type.test_is_instance()
   lu.assertFalse(dt.ArrayTable.is({}))
 end
 
--- arraytable instance tests
+--[[
+ArrayTable Instance Unit Tests
+--]]
+
 test_arraytable = {}
 
 function test_arraytable.test_lifecycle()
@@ -828,7 +839,10 @@ function test_arraytable.test_is_instance()
   lu.assertFalse(NumbersA:is({}))
 end
 
--- slot wrapper tests
+--[[
+Table Slot Wrapper Unit Tests
+--]]
+
 test_slot_wrapper = {}
 
 function test_slot_wrapper.test_datatable_slot()
@@ -875,12 +889,9 @@ Module Interface
 
 return {
   test_slot=test_slot,
-
   test_datatable_type=test_datatable_type,
   test_datatable=test_datatable,
-
   test_arraytable_type=test_arraytable_type,
   test_arraytable=test_arraytable,
-
   test_slot_wrapper=test_slot_wrapper,
 }
